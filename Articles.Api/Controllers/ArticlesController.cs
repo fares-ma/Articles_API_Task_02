@@ -19,12 +19,6 @@ namespace Articles.Api.Controllers
             _mapper = mapper;
         }
 
-        /// <summary>
-        /// Get all articles with pagination
-        /// </summary>
-        /// <param name="pageNumber">Page number (default: 1)</param>
-        /// <param name="pageSize">Page size (default: 10, max: 50)</param>
-        /// <returns>Paginated list of articles</returns>
         [HttpGet]
         public async Task<ActionResult<PaginationResult<ArticleDto>>> GetAllArticles(
             [FromQuery] int pageNumber = 1,
@@ -49,11 +43,6 @@ namespace Articles.Api.Controllers
             });
         }
 
-        /// <summary>
-        /// Get article by ID
-        /// </summary>
-        /// <param name="id">Article ID</param>
-        /// <returns>Article details</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<ArticleDto>> GetArticleById(int id)
         {
@@ -66,11 +55,7 @@ namespace Articles.Api.Controllers
             return Ok(articleDto);
         }
 
-        /// <summary>
-        /// Get article by title
-        /// </summary>
-        /// <param name="title">Article title</param>
-        /// <returns>Article details</returns>
+       
         [HttpGet("title/{title}")]
         public async Task<ActionResult<ArticleDto>> GetArticleByTitle(string title)
         {
@@ -83,13 +68,6 @@ namespace Articles.Api.Controllers
             return Ok(articleDto);
         }
 
-        /// <summary>
-        /// Get articles by tag with pagination
-        /// </summary>
-        /// <param name="tag">Tag to filter by</param>
-        /// <param name="pageNumber">Page number (default: 1)</param>
-        /// <param name="pageSize">Page size (default: 10, max: 50)</param>
-        /// <returns>Paginated list of articles with the specified tag</returns>
         [HttpGet("tag/{tag}")]
         public async Task<ActionResult<PaginationResult<ArticleDto>>> GetArticlesByTag(
             string tag,
@@ -115,12 +93,6 @@ namespace Articles.Api.Controllers
             });
         }
 
-        /// <summary>
-        /// Get published articles with pagination
-        /// </summary>
-        /// <param name="pageNumber">Page number (default: 1)</param>
-        /// <param name="pageSize">Page size (default: 10, max: 50)</param>
-        /// <returns>Paginated list of published articles</returns>
         [HttpGet("published")]
         public async Task<ActionResult<PaginationResult<ArticleDto>>> GetPublishedArticles(
             [FromQuery] int pageNumber = 1,
