@@ -13,5 +13,12 @@ namespace Core.Services.Abstraction
         Task<int> GetTotalCountAsync();
         Task<int> GetPublishedCountAsync();
         Task<int> GetByTagCountAsync(string tag);
+        Task<Article> AddAsync(Article article);
+        Task<Article> UpdateAsync(Article article);
+        Task<bool> DeleteAsync(int id);
+        Task<bool> ExistsAsync(int id);
+        Task<bool> ExistsByTitleAsync(string title);
+        Task<IEnumerable<Article>> GetByNewspaperAsync(int newspaperId);
+        Task<int> GetByNewspaperCountAsync(int newspaperId);
     }
 } 

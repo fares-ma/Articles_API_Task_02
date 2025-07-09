@@ -14,5 +14,6 @@ namespace Shared.DTOs
         public string Tags { get; set; } = string.Empty;
         public string Author { get; set; } = string.Empty;
         public bool IsPublished { get; set; }
+        public int? NewspaperId { get; set; }
     }
 }

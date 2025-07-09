@@ -12,5 +12,11 @@ namespace Core.Domain.Models
         public DateTime? UpdatedAt { get; set; }
         public bool IsPublished { get; set; }
         public int ViewCount { get; set; }
+        
+        // Foreign Key for Newspaper relationship
+        public int? NewspaperId { get; set; }
+        
+        // Navigation Property
+        public virtual Newspaper? Newspaper { get; set; }
     }
 } 

@@ -67,5 +67,55 @@ namespace Infrastructure.Persistence.Repositories
                 .Where(a => a.Tags.Contains(tag))
                 .CountAsync();
         }
+
+        public async Task<Article> AddAsync(Article article)
+        {
+            _context.Articles.Add(article);
+            await _context.SaveChangesAsync();
+            return article;
+        }
+
+        public async Task<Article> UpdateAsync(Article article)
+        {
+            _context.Articles.Update(article);
+            await _context.SaveChangesAsync();
+            return article;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var article = await _context.Articles.FindAsync(id);
+            if (article == null)
+                return false;
+
+            _context.Articles.Remove(article);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ExistsAsync(int id)
+        {
+            return await _context.Articles.AnyAsync(a => a.Id == id);
+        }
+
+        public async Task<bool> ExistsByTitleAsync(string title)
+        {
+            return await _context.Articles.AnyAsync(a => a.Title == title);
+        }
+
+        public async Task<IEnumerable<Article>> GetByNewspaperAsync(int newspaperId)
+        {
+            return await _context.Articles
+                .Where(a => a.NewspaperId == newspaperId)
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetByNewspaperCountAsync(int newspaperId)
+        {
+            return await _context.Articles
+                .Where(a => a.NewspaperId == newspaperId)
+                .CountAsync();
+        }
     }
 } 

@@ -1,0 +1,99 @@
+### Newspapers API Tests
+
+### Get All Newspapers (Paginated)
+GET {{baseUrl}}/api/newspapers?pageNumber=1&pageSize=10
+Content-Type: application/json
+
+### Get All Newspapers (Without Pagination)
+GET {{baseUrl}}/api/newspapers/all
+Content-Type: application/json
+
+### Get Active Newspapers
+GET {{baseUrl}}/api/newspapers/active
+Content-Type: application/json
+
+### Get Newspaper by ID
+GET {{baseUrl}}/api/newspapers/1
+Content-Type: application/json
+
+### Get Newspaper by Name
+GET {{baseUrl}}/api/newspapers/name/Al-Ahram
+Content-Type: application/json
+
+### Create New Newspaper
+POST {{baseUrl}}/api/newspapers
+Content-Type: application/json
+
+{
+  "name": "Al-Ahram",
+  "description": "Egypt's leading daily newspaper",
+  "publisher": "Al-Ahram Organization",
+  "website": "https://www.ahram.org.eg",
+  "logoUrl": "https://example.com/ahram-logo.png",
+  "foundedDate": "1875-08-05T00:00:00Z"
+}
+
+### Create Another Newspaper
+POST {{baseUrl}}/api/newspapers
+Content-Type: application/json
+
+{
+  "name": "Al-Masry Al-Youm",
+  "description": "Independent Egyptian daily newspaper",
+  "publisher": "Al-Masry Al-Youm Foundation",
+  "website": "https://www.almasryalyoum.com",
+  "logoUrl": "https://example.com/masry-logo.png",
+  "foundedDate": "2004-06-07T00:00:00Z"
+}
+
+### Update Newspaper
+PUT {{baseUrl}}/api/newspapers/1
+Content-Type: application/json
+
+{
+  "name": "Al-Ahram Updated",
+  "description": "Updated description for Egypt's leading daily newspaper",
+  "publisher": "Al-Ahram Organization",
+  "website": "https://www.ahram.org.eg",
+  "logoUrl": "https://example.com/ahram-logo-updated.png",
+  "foundedDate": "1875-08-05T00:00:00Z",
+  "isActive": true
+}
+
+### Delete Newspaper
+DELETE {{baseUrl}}/api/newspapers/2
+Content-Type: application/json
+
+### Articles with Newspaper Integration
+
+### Get Articles by Newspaper
+GET {{baseUrl}}/api/articles/newspaper/1?pageNumber=1&pageSize=10
+Content-Type: application/json
+
+### Create Article with Newspaper
+POST {{baseUrl}}/api/articles
+Content-Type: application/json
+
+{
+  "title": "Breaking News: Technology Advances",
+  "description": "Latest developments in technology sector",
+  "content": "This is the full content of the article about technology advances...",
+  "tags": "technology,innovation,news",
+  "author": "Ahmed Hassan",
+  "isPublished": true,
+  "newspaperId": 1
+}
+
+### Update Article with Newspaper
+PUT {{baseUrl}}/api/articles/1
+Content-Type: application/json
+
+{
+  "title": "Updated: Technology Advances",
+  "description": "Updated description for technology article",
+  "content": "Updated content of the article about technology advances...",
+  "tags": "technology,innovation,news,updated",
+  "author": "Ahmed Hassan",
+  "isPublished": true,
+  "newspaperId": 1
+} 

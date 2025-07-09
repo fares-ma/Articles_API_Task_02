@@ -8,7 +8,10 @@ namespace Articles.Api.Mapping
     {
         public ArticleMappingProfile()
         {
-            CreateMap<Article, ArticleDto>();
+            CreateMap<Article, ArticleDto>()
+                .ForMember(dest => dest.NewspaperId, opt => opt.MapFrom(src => src.NewspaperId))
+                .ForMember(dest => dest.NewspaperName, opt => opt.MapFrom(src => src.Newspaper != null ? src.Newspaper.Name : null));
+            
             CreateMap<Article, ArticleSummaryDto>();
             CreateMap<CreateArticleDto, Article>()
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))

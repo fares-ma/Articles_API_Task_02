@@ -10,7 +10,7 @@ namespace Articles.Api
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -26,11 +26,13 @@ namespace Articles.Api
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // Add AutoMapper
-            builder.Services.AddAutoMapper(typeof(ArticleMappingProfile));
+            builder.Services.AddAutoMapper(typeof(ArticleMappingProfile), typeof(NewspaperMappingProfile));
 
             // Add Services
             builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
             builder.Services.AddScoped<IArticleService, ArticleService>();
+            builder.Services.AddScoped<INewspaperRepository, NewspaperRepository>();
+            builder.Services.AddScoped<INewspaperService, NewspaperService>();
 
             var app = builder.Build();
 
@@ -46,6 +48,13 @@ namespace Articles.Api
             app.UseAuthorization();
 
             app.MapControllers();
+
+            // Seed data
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                await DataSeeder.SeedDataAsync(context);
+            }
 
             app.Run();
         }
