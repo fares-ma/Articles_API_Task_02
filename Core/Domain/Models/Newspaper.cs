@@ -13,7 +13,13 @@ namespace Core.Domain.Models
         public DateTime? UpdatedAt { get; set; }
         public bool IsActive { get; set; }
 
-        // Navigation Property - Relationship with Articles
+        #region Navigation Property - Relationship with Articles
+        // Navigation property that represents the one-to-many relationship:
+        // One newspaper can have many articles.
+        // Entity Framework uses this to load all related articles for a newspaper.
+        // 'virtual' allows for lazy loading if enabled.
+        // Initialized as an empty list to avoid null reference issues.
+        #endregion
         public virtual ICollection<Article> Articles { get; set; } = new List<Article>();
     }
 } 

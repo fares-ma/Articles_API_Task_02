@@ -5,32 +5,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    public class ArticleRepository : IArticleRepository
+    public class ArticleRepository : Repository<Article>, IArticleRepository
     {
         private readonly ApplicationDbContext _context;
 
-        public ArticleRepository(ApplicationDbContext context)
+        public ArticleRepository(ApplicationDbContext context) : base(context)
         {
             _context = context;
-        }
-
-        public async Task<Article?> GetByIdAsync(int id)
-        {
-            return await _context.Articles
-                .FirstOrDefaultAsync(a => a.Id == id);
         }
 
         public async Task<Article?> GetByTitleAsync(string title)
         {
             return await _context.Articles
                 .FirstOrDefaultAsync(a => a.Title == title);
-        }
-
-        public async Task<IEnumerable<Article>> GetAllAsync()
-        {
-            return await _context.Articles
-                .OrderByDescending(a => a.CreatedAt)
-                .ToListAsync();
         }
 
         public async Task<IEnumerable<Article>> GetByTagAsync(string tag)
@@ -66,36 +53,6 @@ namespace Infrastructure.Persistence.Repositories
             return await _context.Articles
                 .Where(a => a.Tags.Contains(tag))
                 .CountAsync();
-        }
-
-        public async Task<Article> AddAsync(Article article)
-        {
-            _context.Articles.Add(article);
-            await _context.SaveChangesAsync();
-            return article;
-        }
-
-        public async Task<Article> UpdateAsync(Article article)
-        {
-            _context.Articles.Update(article);
-            await _context.SaveChangesAsync();
-            return article;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var article = await _context.Articles.FindAsync(id);
-            if (article == null)
-                return false;
-
-            _context.Articles.Remove(article);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> ExistsAsync(int id)
-        {
-            return await _context.Articles.AnyAsync(a => a.Id == id);
         }
 
         public async Task<bool> ExistsByTitleAsync(string title)

@@ -29,6 +29,7 @@ namespace Articles.Api
             builder.Services.AddAutoMapper(typeof(ArticleMappingProfile), typeof(NewspaperMappingProfile));
 
             // Add Services
+            builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
             builder.Services.AddScoped<IArticleService, ArticleService>();
             builder.Services.AddScoped<INewspaperRepository, NewspaperRepository>();

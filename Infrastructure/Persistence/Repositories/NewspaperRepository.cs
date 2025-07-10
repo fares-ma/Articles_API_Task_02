@@ -6,21 +6,13 @@ using Shared.Models;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    public class NewspaperRepository : INewspaperRepository
+    public class NewspaperRepository : Repository<Newspaper>, INewspaperRepository
     {
         private readonly ApplicationDbContext _context;
 
-        public NewspaperRepository(ApplicationDbContext context)
+        public NewspaperRepository(ApplicationDbContext context) : base(context)
         {
             _context = context;
-        }
-
-        public async Task<IEnumerable<Newspaper>> GetAllAsync()
-        {
-            return await _context.Newspapers
-                .Include(n => n.Articles)
-                .OrderBy(n => n.Name)
-                .ToListAsync();
         }
 
         public async Task<PaginationResult<Newspaper>> GetAllAsync(PaginationParameters parameters)
@@ -47,13 +39,6 @@ namespace Infrastructure.Persistence.Repositories
             };
         }
 
-        public async Task<Newspaper?> GetByIdAsync(int id)
-        {
-            return await _context.Newspapers
-                .Include(n => n.Articles)
-                .FirstOrDefaultAsync(n => n.Id == id);
-        }
-
         public async Task<Newspaper?> GetByNameAsync(string name)
         {
             return await _context.Newspapers
@@ -68,36 +53,6 @@ namespace Infrastructure.Persistence.Repositories
                 .Where(n => n.IsActive)
                 .OrderBy(n => n.Name)
                 .ToListAsync();
-        }
-
-        public async Task<Newspaper> AddAsync(Newspaper newspaper)
-        {
-            _context.Newspapers.Add(newspaper);
-            await _context.SaveChangesAsync();
-            return newspaper;
-        }
-
-        public async Task<Newspaper> UpdateAsync(Newspaper newspaper)
-        {
-            _context.Newspapers.Update(newspaper);
-            await _context.SaveChangesAsync();
-            return newspaper;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var newspaper = await _context.Newspapers.FindAsync(id);
-            if (newspaper == null)
-                return false;
-
-            _context.Newspapers.Remove(newspaper);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> ExistsAsync(int id)
-        {
-            return await _context.Newspapers.AnyAsync(n => n.Id == id);
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
