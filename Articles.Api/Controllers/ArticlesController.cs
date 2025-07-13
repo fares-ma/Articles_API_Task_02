@@ -6,6 +6,30 @@ using Shared.Models;
 
 namespace Articles.Api.Controllers
 {
+
+    #region summary
+    /// ArticlesController handles HTTP requests for article-related operations.
+    /// 
+    /// Purpose:
+    /// - Provides RESTful API endpoints for article management
+    /// - Handles CRUD operations for articles
+    /// - Implements pagination and filtering capabilities
+    /// - Manages article-newspaper relationships
+    /// - Provides search functionality by title, tags, and publication status
+    /// 
+    /// Dependencies:
+    /// - IArticleService for business logic operations
+    /// - AutoMapper for DTO transformations
+    /// - ASP.NET Core MVC framework
+    /// - Shared DTOs and models for data transfer
+    /// 
+    /// Alternatives:
+    /// - Could implement GraphQL for more flexible queries
+    /// - Could add caching layer for performance
+    /// - Could implement real-time updates with SignalR
+    /// - Could add authentication and authorization 
+    #endregion
+
     [ApiController]
     [Route("api/[controller]")]
     public class ArticlesController : ControllerBase

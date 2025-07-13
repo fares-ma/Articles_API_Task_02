@@ -1,5 +1,6 @@
 namespace Shared.DTOs
 {
+
     public class ArticleDto
     {
         public int Id { get; set; }

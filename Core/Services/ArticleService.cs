@@ -4,6 +4,30 @@ using Shared.Models;
 
 namespace Core.Services
 {
+
+    #region summary
+    /// ArticleService implements business logic for article management operations.
+    /// 
+    /// Purpose:
+    /// - Handles article business logic and validation
+    /// - Manages article CRUD operations with proper validation
+    /// - Implements pagination logic for article queries
+    /// - Provides article filtering and search capabilities
+    /// - Ensures data integrity and business rules enforcement
+    /// 
+    /// Dependencies:
+    /// - IArticleRepository for data access operations
+    /// - Core.Domain.Models for entity definitions
+    /// - Shared.Models for pagination parameters
+    /// - Entity Framework for data persistence
+    /// 
+    /// Alternatives:
+    /// - Could implement caching layer for performance
+    /// - Could add event sourcing for audit trails
+    /// - Could implement domain events for decoupling
+    /// - Could add business rule engine for complex validations 
+    #endregion
+
     public class ArticleService : IArticleService
     {
         private readonly IArticleRepository _articleRepository;

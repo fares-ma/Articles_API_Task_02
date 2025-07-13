@@ -1,5 +1,6 @@
 namespace Shared.Models
 {
+ 
     public class PaginationResult<T>
     {
         public IEnumerable<T> Items { get; set; } = new List<T>();

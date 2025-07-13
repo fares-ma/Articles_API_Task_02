@@ -4,6 +4,29 @@ using Shared.DTOs;
 
 namespace Articles.Api.Mapping
 {
+
+    #region summary
+    /// ArticleMappingProfile defines AutoMapper configurations for Article entities.
+    /// 
+    /// Purpose:
+    /// - Maps between Article domain models and DTOs
+    /// - Handles complex mapping scenarios with relationships
+    /// - Ensures consistent data transformation across the application
+    /// - Provides clean separation between domain and API layers
+    /// 
+    /// Dependencies:
+    /// - AutoMapper framework for object mapping
+    /// - Core.Domain.Models for source entities
+    /// - Shared.DTOs for target objects
+    /// - Entity Framework for relationship loading
+    /// 
+    /// Alternatives:
+    /// - Could implement manual mapping for complex scenarios
+    /// - Could use different mapping libraries (Mapster, ExpressMapper)
+    /// - Could implement custom value resolvers
+    /// - Could add mapping validation 
+    #endregion
+
     public class ArticleMappingProfile : Profile
     {
         public ArticleMappingProfile()

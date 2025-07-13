@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Shared.Models
 {
+
     public class PaginationParameters
     {
         private const int MaxPageSize = 50;

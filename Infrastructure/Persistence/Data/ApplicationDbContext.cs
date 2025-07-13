@@ -3,6 +3,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Data
 {
+
+    #region summary
+    /// ApplicationDbContext represents the main database context for the Articles API.
+    /// 
+    /// Purpose:
+    /// - Manages database connections and Entity Framework operations
+    /// - Defines database schema and entity configurations
+    /// - Handles relationships between entities (Articles and Newspapers)
+    /// - Provides DbSet properties for data access
+    /// 
+    /// Dependencies:
+    /// - Entity Framework Core for ORM functionality
+    /// - Core.Domain.Models for entity definitions
+    /// - SQL Server as the database provider
+    /// 
+    /// Alternatives:
+    /// - Could use different database providers (PostgreSQL, MySQL, SQLite)
+    /// - Could implement separate contexts for different bounded contexts
+    /// - Could use different ORM frameworks (Dapper, NHibernate) 
+    #endregion
+
     public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)

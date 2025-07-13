@@ -1,5 +1,27 @@
 namespace Core.Domain.Models
 {
+
+    #region summary
+    /// Newspaper entity represents a news publication or media outlet in the system.
+    /// 
+    /// Purpose:
+    /// - Core domain model for newspaper/publisher management
+    /// - Represents media organizations that publish articles
+    /// - Supports one-to-many relationship with articles
+    /// - Tracks publication metadata (founding date, status, contact info)
+    /// 
+    /// Dependencies:
+    /// - Entity Framework Core for persistence
+    /// - Article entity for one-to-many relationship
+    /// - AutoMapper for DTO transformations
+    /// 
+    /// Alternatives:
+    /// - Could implement magazine/journal types
+    /// - Could add support for multiple locations
+    /// - Could implement subscription models
+    /// - Could add support for editorial teams
+
+    #endregion
     public class Newspaper
     {
         public int Id { get; set; }

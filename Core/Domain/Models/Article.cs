@@ -1,5 +1,26 @@
 namespace Core.Domain.Models
 {
+    #region summary
+
+    /// Article entity represents a news article or blog post in the system.
+    /// 
+    /// Purpose:
+    /// - Core domain model for article management
+    /// - Represents the main content entity in the application
+    /// - Supports optional relationship with newspapers
+    /// - Tracks article metadata (views, publication status, timestamps)
+    /// 
+    /// Dependencies:
+    /// - Entity Framework Core for persistence
+    /// - Newspaper entity for optional relationship
+    /// - AutoMapper for DTO transformations
+    /// 
+    /// Alternatives:
+    /// - Could implement content versioning
+    /// - Could add support for rich media content
+    /// - Could implement article categories or topics
+    /// - Could add support for multiple authors 
+    #endregion
     public class Article
     {
         public int Id { get; set; }

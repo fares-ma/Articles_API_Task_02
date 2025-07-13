@@ -5,6 +5,30 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
+
+    #region summary
+    /// ArticleRepository implements data access operations for Article entities.
+    /// 
+    /// Purpose:
+    /// - Provides data access layer for article operations
+    /// - Implements article-specific query methods
+    /// - Handles database operations with Entity Framework
+    /// - Provides optimized queries for filtering and searching
+    /// - Manages article-newspaper relationships
+    /// 
+    /// Dependencies:
+    /// - ApplicationDbContext for database operations
+    /// - Entity Framework Core for ORM functionality
+    /// - Core.Domain.Models for entity definitions
+    /// - IArticleRepository interface for contract
+    /// 
+    /// Alternatives:
+    /// - Could implement Dapper for raw SQL performance
+    /// - Could add query caching for frequently accessed data
+    /// - Could implement read/write separation
+    /// - Could add database sharding for large datasets 
+    #endregion
+
     public class ArticleRepository : Repository<Article>, IArticleRepository
     {
         private readonly ApplicationDbContext _context;

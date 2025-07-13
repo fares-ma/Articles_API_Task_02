@@ -8,6 +8,28 @@ using Articles.Api.Mapping;
 
 namespace Articles.Api
 {
+    #region summary
+
+    /// Main entry point for the Articles API application.
+    /// 
+    /// Purpose:
+    /// - Configures and starts the ASP.NET Core web application
+    /// - Sets up dependency injection container
+    /// - Configures services, middleware, and database connections
+    /// - Seeds initial data for development and testing
+    /// 
+    /// Dependencies:
+    /// - Entity Framework Core for database operations
+    /// - AutoMapper for object mapping
+    /// - Swagger for API documentation
+    /// - Custom services and repositories
+    /// 
+    /// Alternatives:
+    /// - Could use different DI containers (Autofac, Ninject)
+    /// - Could implement different database providers (PostgreSQL, MySQL)
+    /// - Could use different API documentation tools (Redoc, Postman)
+
+    #endregion
     public class Program
     {
         public static async Task Main(string[] args)

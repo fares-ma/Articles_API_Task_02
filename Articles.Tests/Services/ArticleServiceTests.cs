@@ -7,6 +7,30 @@ using Shared.Models;
 
 namespace Articles.Tests.Services
 {
+
+    #region summary
+    /// ArticleServiceTests provides unit tests for ArticleService business logic.
+    /// 
+    /// Purpose:
+    /// - Tests article business logic and validation rules
+    /// - Verifies CRUD operations with proper error handling
+    /// - Tests pagination and filtering functionality
+    /// - Ensures data integrity and business rule enforcement
+    /// - Validates service layer behavior in isolation
+    /// 
+    /// Dependencies:
+    /// - xUnit for test framework
+    /// - Moq for mocking dependencies
+    /// - FluentAssertions for readable assertions
+    /// - Core.Services for service under test
+    /// 
+    /// Alternatives:
+    /// - Could implement integration tests with real database
+    /// - Could use different mocking frameworks (NSubstitute, FakeItEasy)
+    /// - Could implement property-based testing
+    /// - Could add performance testing scenarios
+
+    #endregion
     public class ArticleServiceTests
     {
         private readonly Mock<IArticleRepository> _mockRepository;
