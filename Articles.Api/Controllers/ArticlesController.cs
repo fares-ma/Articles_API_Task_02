@@ -3,6 +3,7 @@ using Core.Services.Abstraction;
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
 using Shared.Models;
+using Serilog;
 
 namespace Articles.Api.Controllers
 {
@@ -36,11 +37,13 @@ namespace Articles.Api.Controllers
     {
         private readonly IArticleService _articleService;
         private readonly IMapper _mapper;
+        private readonly ILogger<ArticlesController> _logger;
 
-        public ArticlesController(IArticleService articleService, IMapper mapper)
+        public ArticlesController(IArticleService articleService, IMapper mapper, ILogger<ArticlesController> logger)
         {
             _articleService = articleService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -83,11 +86,26 @@ namespace Articles.Api.Controllers
         [HttpGet("title/{title}")]
         public async Task<ActionResult<ArticleDto>> GetArticleByTitle(string title)
         {
-            var article = await _articleService.GetArticleByTitleAsync(title);
             
-            if (article == null)
-                return NotFound($"Article with title '{title}' not found");
+            var safeTitle = string.Join("_", title.Split(System.IO.Path.GetInvalidFileNameChars()));
+            var fileName = $"Logs/article_{safeTitle}_{DateTime.Now:yyyyMMddHHmmssfff}.txt";
 
+            
+            var requestLogger = new Serilog.LoggerConfiguration()
+                .WriteTo.File(fileName)
+                .CreateLogger();
+
+            requestLogger.Information("Request received to get article by title: {Title}", title);
+
+            var article = await _articleService.GetArticleByTitleAsync(title);
+
+            if (article == null)
+            {
+                requestLogger.Warning("No article found with title: {Title}", title);
+                return NotFound($"Article with title '{title}' not found");
+            }
+
+            requestLogger.Information("Article found with title: {Title}", title);
             var articleDto = _mapper.Map<ArticleDto>(article);
             return Ok(articleDto);
         }

@@ -47,6 +47,57 @@ namespace Core.Services
             return await _articleRepository.GetByTitleAsync(title);
         }
 
+        #region Alternative: Fetch articles from AWS S3 instead of SQL Server
+        // ================== Alternative: Fetch articles from AWS S3 instead of SQL Server ==================
+        //
+        // // 1. Make sure to add the AWS SDK package:
+        // // dotnet add package AWSSDK.S3
+        //
+        // // 2. Use the following code to fetch articles from S3:
+        // /*
+        // using Amazon.S3;
+        // using Amazon.S3.Model;
+        // using Newtonsoft.Json;
+        // using Shared.DTOs;
+        //
+        // var s3Client = new AmazonS3Client(
+        //     configuration["AWS:AccessKey"],
+        //     configuration["AWS:SecretKey"],
+        //     Amazon.RegionEndpoint.GetBySystemName(configuration["AWS:Region"])
+        // );
+        // var response = await s3Client.GetObjectAsync(configuration["AWS:BucketName"], "articles/all-articles.json");
+        // using var reader = new StreamReader(response.ResponseStream);
+        // var json = await reader.ReadToEndAsync();
+        // var articleDtos = JsonConvert.DeserializeObject<List<ArticleDto>>(json);
+        // var allArticles = articleDtos.Select(dto => new Article {
+        //     Id = dto.Id,
+        //     Title = dto.Title,
+        //     Description = dto.Description,
+        //     Content = dto.Content,
+        //     Tags = dto.Tags,
+        //     Author = dto.Author,
+        //     CreatedAt = dto.CreatedAt,
+        //     UpdatedAt = dto.UpdatedAt,
+        //     IsPublished = dto.IsPublished,
+        //     ViewCount = dto.ViewCount,
+        //     NewspaperId = dto.NewspaperId
+        // }).ToList();
+        // var totalCount = allArticles.Count;
+        // var pagedArticles = allArticles
+        //     .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+        //     .Take(parameters.PageSize)
+        //     .ToList();
+        // return new PaginationResult<Article>
+        // {
+        //     Items = pagedArticles,
+        //     TotalCount = totalCount,
+        //     PageNumber = parameters.PageNumber,
+        //     PageSize = parameters.PageSize,
+        //     TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
+        // };
+        // */
+        // ================== End of S3 code ================== 
+        #endregion
         public async Task<PaginationResult<Article>> GetAllArticlesAsync(PaginationParameters parameters)
         {
             var allArticles = await _articleRepository.GetAllAsync();

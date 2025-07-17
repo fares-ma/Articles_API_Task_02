@@ -5,6 +5,7 @@ using Infrastructure.Persistence.Data;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Articles.Api.Mapping;
+using Serilog;
 
 namespace Articles.Api
 {
@@ -34,7 +35,14 @@ namespace Articles.Api
     {
         public static async Task Main(string[] args)
         {
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.Console()
+                .WriteTo.File("Logs/log.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.Host.UseSerilog();
 
             // Add services to the container.
             builder.Services.AddControllers();
@@ -56,6 +64,10 @@ namespace Articles.Api
             builder.Services.AddScoped<IArticleService, ArticleService>();
             builder.Services.AddScoped<INewspaperRepository, NewspaperRepository>();
             builder.Services.AddScoped<INewspaperService, NewspaperService>();
+
+            #region To register AWS S3 service for S3 article fetching, add this line in the DI setup:
+            // builder.Services.AddAWSService<IAmazonS3>(); 
+            #endregion
 
             var app = builder.Build();
 
