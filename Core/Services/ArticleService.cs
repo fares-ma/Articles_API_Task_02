@@ -1,109 +1,88 @@
 using Core.Domain.Models;
 using Core.Services.Abstraction;
 using Shared.Models;
+using Microsoft.Extensions.Configuration;
+using Amazon.S3;
+using Amazon.S3.Model;
+using Newtonsoft.Json;
+using Shared.DTOs;
+using AutoMapper;
+using Microsoft.Extensions.Caching.Memory;
+using System;
 
 namespace Core.Services
 {
 
-    #region summary
-    /// ArticleService implements business logic for article management operations.
-    /// 
-    /// Purpose:
-    /// - Handles article business logic and validation
-    /// - Manages article CRUD operations with proper validation
-    /// - Implements pagination logic for article queries
-    /// - Provides article filtering and search capabilities
-    /// - Ensures data integrity and business rules enforcement
-    /// 
-    /// Dependencies:
-    /// - IArticleRepository for data access operations
-    /// - Core.Domain.Models for entity definitions
-    /// - Shared.Models for pagination parameters
-    /// - Entity Framework for data persistence
-    /// 
-    /// Alternatives:
-    /// - Could implement caching layer for performance
-    /// - Could add event sourcing for audit trails
-    /// - Could implement domain events for decoupling
-    /// - Could add business rule engine for complex validations 
-    #endregion
 
     public class ArticleService : IArticleService
     {
         private readonly IArticleRepository _articleRepository;
+        private readonly IConfiguration _configuration;
+        private readonly IMapper _mapper;
+        private readonly IMemoryCache _cache;
+        private readonly bool _useS3;
+        private readonly IS3ArticleProvider _s3ArticleProvider;
 
-        public ArticleService(IArticleRepository articleRepository)
+        public ArticleService(
+            IArticleRepository articleRepository, 
+            IConfiguration configuration,
+            IMapper mapper,
+            IMemoryCache cache,
+            IS3ArticleProvider s3ArticleProvider)
         {
             _articleRepository = articleRepository;
+            _configuration = configuration;
+            _mapper = mapper;
+            _cache = cache;
+            _useS3 = bool.TryParse(_configuration["UseS3"], out bool useS3) && useS3;
+            _s3ArticleProvider = s3ArticleProvider;
         }
 
         public async Task<Article?> GetArticleByIdAsync(int id)
         {
-            return await _articleRepository.GetByIdAsync(id);
+            return _useS3 
+                ? await _s3ArticleProvider.GetArticleByIdAsync(id)
+                : await _articleRepository.GetByIdAsync(id);
         }
 
         public async Task<Article?> GetArticleByTitleAsync(string title)
         {
-            return await _articleRepository.GetByTitleAsync(title);
+            return _useS3 
+                ? await _s3ArticleProvider.GetArticleByTitleAsync(title)
+                : await _articleRepository.GetByTitleAsync(title);
         }
 
-        #region Alternative: Fetch articles from AWS S3 instead of SQL Server
-        // ================== Alternative: Fetch articles from AWS S3 instead of SQL Server ==================
-        //
-        // // 1. Make sure to add the AWS SDK package:
-        // // dotnet add package AWSSDK.S3
-        //
-        // // 2. Use the following code to fetch articles from S3:
-        // /*
-        // using Amazon.S3;
-        // using Amazon.S3.Model;
-        // using Newtonsoft.Json;
-        // using Shared.DTOs;
-        //
-        // var s3Client = new AmazonS3Client(
-        //     configuration["AWS:AccessKey"],
-        //     configuration["AWS:SecretKey"],
-        //     Amazon.RegionEndpoint.GetBySystemName(configuration["AWS:Region"])
-        // );
-        // var response = await s3Client.GetObjectAsync(configuration["AWS:BucketName"], "articles/all-articles.json");
-        // using var reader = new StreamReader(response.ResponseStream);
-        // var json = await reader.ReadToEndAsync();
-        // var articleDtos = JsonConvert.DeserializeObject<List<ArticleDto>>(json);
-        // var allArticles = articleDtos.Select(dto => new Article {
-        //     Id = dto.Id,
-        //     Title = dto.Title,
-        //     Description = dto.Description,
-        //     Content = dto.Content,
-        //     Tags = dto.Tags,
-        //     Author = dto.Author,
-        //     CreatedAt = dto.CreatedAt,
-        //     UpdatedAt = dto.UpdatedAt,
-        //     IsPublished = dto.IsPublished,
-        //     ViewCount = dto.ViewCount,
-        //     NewspaperId = dto.NewspaperId
-        // }).ToList();
-        // var totalCount = allArticles.Count;
-        // var pagedArticles = allArticles
-        //     .Skip((parameters.PageNumber - 1) * parameters.PageSize)
-        //     .Take(parameters.PageSize)
-        //     .ToList();
-        // return new PaginationResult<Article>
-        // {
-        //     Items = pagedArticles,
-        //     TotalCount = totalCount,
-        //     PageNumber = parameters.PageNumber,
-        //     PageSize = parameters.PageSize,
-        //     TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
-        // };
-        // */
-        // ================== End of S3 code ================== 
-        #endregion
         public async Task<PaginationResult<Article>> GetAllArticlesAsync(PaginationParameters parameters)
         {
+            ValidatePaginationParameters(parameters);
+            
+            if (_useS3)
+            {
+                return await GetFilteredArticlesFromS3Async(a => true, parameters);
+            }
+
             var allArticles = await _articleRepository.GetAllAsync();
             var totalCount = await _articleRepository.GetTotalCountAsync();
+            return CreatePaginationResult(allArticles, totalCount, parameters);
+        }
 
-            var pagedArticles = allArticles
+        // Helper method to validate pagination parameters
+        private void ValidatePaginationParameters(PaginationParameters parameters)
+        {
+            if (parameters.PageNumber < 1)
+                parameters.PageNumber = 1;
+                
+            if (parameters.PageSize < 1)
+                parameters.PageSize = 10;
+                
+            if (parameters.PageSize > 50)
+                parameters.PageSize = 50;
+        }
+
+        // Helper method to create pagination result from a list of articles
+        private PaginationResult<Article> CreatePaginationResult(IEnumerable<Article> articles, int totalCount, PaginationParameters parameters)
+        {
+            var pagedArticles = articles
                 .Skip((parameters.PageNumber - 1) * parameters.PageSize)
                 .Take(parameters.PageSize)
                 .ToList();
@@ -116,46 +95,53 @@ namespace Core.Services
                 PageSize = parameters.PageSize,
                 TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
             };
+        }
+
+        // Generic method to handle S3 filtering and pagination
+        private async Task<PaginationResult<Article>> GetFilteredArticlesFromS3Async(
+            Func<Article, bool> filterPredicate, 
+            PaginationParameters parameters)
+        {
+            try
+            {
+                var allArticles = await _s3ArticleProvider.GetAllArticlesAsync();
+                var filteredArticles = allArticles.Where(filterPredicate).ToList();
+                return CreatePaginationResult(filteredArticles, filteredArticles.Count, parameters);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"S3 service is currently unavailable: {ex.Message}");
+            }
         }
 
         public async Task<PaginationResult<Article>> GetArticlesByTagAsync(string tag, PaginationParameters parameters)
         {
+            ValidatePaginationParameters(parameters);
+            
+            if (_useS3)
+            {
+                return await GetFilteredArticlesFromS3Async(
+                    a => a.Tags?.Contains(tag, StringComparison.OrdinalIgnoreCase) == true, 
+                    parameters);
+            }
+
             var articlesByTag = await _articleRepository.GetByTagAsync(tag);
             var totalCount = await _articleRepository.GetByTagCountAsync(tag);
-
-            var pagedArticles = articlesByTag
-                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
-                .Take(parameters.PageSize)
-                .ToList();
-
-            return new PaginationResult<Article>
-            {
-                Items = pagedArticles,
-                TotalCount = totalCount,
-                PageNumber = parameters.PageNumber,
-                PageSize = parameters.PageSize,
-                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
-            };
+            return CreatePaginationResult(articlesByTag, totalCount, parameters);
         }
 
         public async Task<PaginationResult<Article>> GetPublishedArticlesAsync(PaginationParameters parameters)
         {
+            ValidatePaginationParameters(parameters);
+            
+            if (_useS3)
+            {
+                return await GetFilteredArticlesFromS3Async(a => a.IsPublished, parameters);
+            }
+
             var publishedArticles = await _articleRepository.GetPublishedAsync();
             var totalCount = await _articleRepository.GetPublishedCountAsync();
-
-            var pagedArticles = publishedArticles
-                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
-                .Take(parameters.PageSize)
-                .ToList();
-
-            return new PaginationResult<Article>
-            {
-                Items = pagedArticles,
-                TotalCount = totalCount,
-                PageNumber = parameters.PageNumber,
-                PageSize = parameters.PageSize,
-                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
-            };
+            return CreatePaginationResult(publishedArticles, totalCount, parameters);
         }
 
         public async Task<Article> CreateArticleAsync(Article article)
@@ -205,22 +191,16 @@ namespace Core.Services
 
         public async Task<PaginationResult<Article>> GetArticlesByNewspaperAsync(int newspaperId, PaginationParameters parameters)
         {
+            ValidatePaginationParameters(parameters);
+            
+            if (_useS3)
+            {
+                return await GetFilteredArticlesFromS3Async(a => a.NewspaperId == newspaperId, parameters);
+            }
+
             var articlesByNewspaper = await _articleRepository.GetByNewspaperAsync(newspaperId);
             var totalCount = await _articleRepository.GetByNewspaperCountAsync(newspaperId);
-
-            var pagedArticles = articlesByNewspaper
-                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
-                .Take(parameters.PageSize)
-                .ToList();
-
-            return new PaginationResult<Article>
-            {
-                Items = pagedArticles,
-                TotalCount = totalCount,
-                PageNumber = parameters.PageNumber,
-                PageSize = parameters.PageSize,
-                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
-            };
+            return CreatePaginationResult(articlesByNewspaper, totalCount, parameters);
         }
     }
 } 

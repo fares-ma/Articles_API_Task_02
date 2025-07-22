@@ -4,32 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
 using Shared.Models;
 using Serilog;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Articles.Api.Controllers
 {
-
-    #region summary
-    /// ArticlesController handles HTTP requests for article-related operations.
-    /// 
-    /// Purpose:
-    /// - Provides RESTful API endpoints for article management
-    /// - Handles CRUD operations for articles
-    /// - Implements pagination and filtering capabilities
-    /// - Manages article-newspaper relationships
-    /// - Provides search functionality by title, tags, and publication status
-    /// 
-    /// Dependencies:
-    /// - IArticleService for business logic operations
-    /// - AutoMapper for DTO transformations
-    /// - ASP.NET Core MVC framework
-    /// - Shared DTOs and models for data transfer
-    /// 
-    /// Alternatives:
-    /// - Could implement GraphQL for more flexible queries
-    /// - Could add caching layer for performance
-    /// - Could implement real-time updates with SignalR
-    /// - Could add authentication and authorization 
-    #endregion
 
     [ApiController]
     [Route("api/[controller]")]
@@ -51,23 +29,40 @@ namespace Articles.Api.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            var parameters = new PaginationParameters
+            var parameters = CreatePaginationParameters(pageNumber, pageSize);
+            var result = await _articleService.GetAllArticlesAsync(parameters);
+            return Ok(CreateDtoPaginationResult(result));
+        }
+        
+        // Helper method to create pagination parameters with validation
+        private PaginationParameters CreatePaginationParameters(int pageNumber, int pageSize)
+        {
+            // Ensure valid pagination values
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 50) pageSize = 50;
+            
+            return new PaginationParameters
             {
                 PageNumber = pageNumber,
                 PageSize = pageSize
             };
-
-            var result = await _articleService.GetAllArticlesAsync(parameters);
-            var articleDtos = _mapper.Map<IEnumerable<ArticleDto>>(result.Items);
-
-            return Ok(new PaginationResult<ArticleDto>
+        }
+        
+        // Helper method to map domain pagination result to DTO pagination result
+        private PaginationResult<ArticleDto> CreateDtoPaginationResult<T>(PaginationResult<T> domainResult) 
+            where T : Core.Domain.Models.Article
+        {
+            var dtos = _mapper.Map<IEnumerable<ArticleDto>>(domainResult.Items);
+            
+            return new PaginationResult<ArticleDto>
             {
-                Items = articleDtos,
-                TotalCount = result.TotalCount,
-                PageNumber = result.PageNumber,
-                PageSize = result.PageSize,
-                TotalPages = result.TotalPages
-            });
+                Items = dtos,
+                TotalCount = domainResult.TotalCount,
+                PageNumber = domainResult.PageNumber,
+                PageSize = domainResult.PageSize,
+                TotalPages = domainResult.TotalPages
+            };
         }
 
         [HttpGet("{id}")]
@@ -82,32 +77,32 @@ namespace Articles.Api.Controllers
             return Ok(articleDto);
         }
 
-       
+        // Dynamic endpoint that uses the flag to determine data source
         [HttpGet("title/{title}")]
+        [Authorize]
         public async Task<ActionResult<ArticleDto>> GetArticleByTitle(string title)
         {
-            
-            var safeTitle = string.Join("_", title.Split(System.IO.Path.GetInvalidFileNameChars()));
-            var fileName = $"Logs/article_{safeTitle}_{DateTime.Now:yyyyMMddHHmmssfff}.txt";
+            _logger.LogInformation("Request received to get article by title: {Title}", title);
 
-            
-            var requestLogger = new Serilog.LoggerConfiguration()
-                .WriteTo.File(fileName)
-                .CreateLogger();
-
-            requestLogger.Information("Request received to get article by title: {Title}", title);
-
-            var article = await _articleService.GetArticleByTitleAsync(title);
-
-            if (article == null)
+            try
             {
-                requestLogger.Warning("No article found with title: {Title}", title);
-                return NotFound($"Article with title '{title}' not found");
-            }
+                var article = await _articleService.GetArticleByTitleAsync(title);
 
-            requestLogger.Information("Article found with title: {Title}", title);
-            var articleDto = _mapper.Map<ArticleDto>(article);
-            return Ok(articleDto);
+                if (article == null)
+                {
+                    _logger.LogWarning("No article found with title: {Title}", title);
+                    return NotFound($"Article with title '{title}' not found");
+                }
+
+                _logger.LogInformation("Article found with title: {Title}", title);
+                var articleDto = _mapper.Map<ArticleDto>(article);
+                return Ok(articleDto);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Service error when retrieving article by title: {Title}", title);
+                return StatusCode(503, new { error = "Service is currently unavailable", details = ex.Message });
+            }
         }
 
         [HttpGet("tag/{tag}")]
@@ -116,23 +111,9 @@ namespace Articles.Api.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            var parameters = new PaginationParameters
-            {
-                PageNumber = pageNumber,
-                PageSize = pageSize
-            };
-
+            var parameters = CreatePaginationParameters(pageNumber, pageSize);
             var result = await _articleService.GetArticlesByTagAsync(tag, parameters);
-            var articleDtos = _mapper.Map<IEnumerable<ArticleDto>>(result.Items);
-
-            return Ok(new PaginationResult<ArticleDto>
-            {
-                Items = articleDtos,
-                TotalCount = result.TotalCount,
-                PageNumber = result.PageNumber,
-                PageSize = result.PageSize,
-                TotalPages = result.TotalPages
-            });
+            return Ok(CreateDtoPaginationResult(result));
         }
 
         [HttpGet("published")]
@@ -140,23 +121,9 @@ namespace Articles.Api.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            var parameters = new PaginationParameters
-            {
-                PageNumber = pageNumber,
-                PageSize = pageSize
-            };
-
+            var parameters = CreatePaginationParameters(pageNumber, pageSize);
             var result = await _articleService.GetPublishedArticlesAsync(parameters);
-            var articleDtos = _mapper.Map<IEnumerable<ArticleDto>>(result.Items);
-
-            return Ok(new PaginationResult<ArticleDto>
-            {
-                Items = articleDtos,
-                TotalCount = result.TotalCount,
-                PageNumber = result.PageNumber,
-                PageSize = result.PageSize,
-                TotalPages = result.TotalPages
-            });
+            return Ok(CreateDtoPaginationResult(result));
         }
 
         [HttpPost]
@@ -219,23 +186,9 @@ namespace Articles.Api.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            var parameters = new PaginationParameters
-            {
-                PageNumber = pageNumber,
-                PageSize = pageSize
-            };
-
+            var parameters = CreatePaginationParameters(pageNumber, pageSize);
             var result = await _articleService.GetArticlesByNewspaperAsync(newspaperId, parameters);
-            var articleDtos = _mapper.Map<IEnumerable<ArticleDto>>(result.Items);
-
-            return Ok(new PaginationResult<ArticleDto>
-            {
-                Items = articleDtos,
-                TotalCount = result.TotalCount,
-                PageNumber = result.PageNumber,
-                PageSize = result.PageSize,
-                TotalPages = result.TotalPages
-            });
+            return Ok(CreateDtoPaginationResult(result));
         }
     }
 } 

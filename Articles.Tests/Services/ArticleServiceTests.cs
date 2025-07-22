@@ -4,6 +4,10 @@ using Core.Services.Abstraction;
 using FluentAssertions;
 using Moq;
 using Shared.Models;
+using Microsoft.Extensions.Configuration;
+using AutoMapper;
+using Microsoft.Extensions.Caching.Memory;
+using Amazon.S3;
 
 namespace Articles.Tests.Services
 {
@@ -34,12 +38,36 @@ namespace Articles.Tests.Services
     public class ArticleServiceTests
     {
         private readonly Mock<IArticleRepository> _mockRepository;
+        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<IMemoryCache> _mockCache;
         private readonly ArticleService _service;
 
         public ArticleServiceTests()
         {
             _mockRepository = new Mock<IArticleRepository>();
-            _service = new ArticleService(_mockRepository.Object);
+            _mockConfiguration = new Mock<IConfiguration>();
+            _mockMapper = new Mock<IMapper>();
+            _mockCache = new Mock<IMemoryCache>();
+            
+            // Setup configuration section for UseS3
+            var mockSection = new Mock<IConfigurationSection>();
+            mockSection.Setup(s => s.Value).Returns("false");
+            _mockConfiguration.Setup(c => c["UseS3"]).Returns("false");
+            
+            // Setup other required configuration values
+            _mockConfiguration.Setup(c => c["AWS:BucketName"]).Returns("test-bucket");
+            _mockConfiguration.Setup(c => c["AWS:ArticlesKey"]).Returns("articles/test.json");
+            
+            // Setup memory cache
+            var cacheEntry = new Mock<ICacheEntry>();
+            _mockCache.Setup(m => m.CreateEntry(It.IsAny<object>())).Returns(cacheEntry.Object);
+            
+            _service = new ArticleService(
+                _mockRepository.Object,
+                _mockConfiguration.Object,
+                _mockMapper.Object,
+                _mockCache.Object);
         }
 
         [Fact]

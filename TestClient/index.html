@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search Article by Title</title>
+    <style>
+        body { font-family: Tahoma, Arial; margin: 40px; background: #f9f9f9; }
+        .container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px #ddd; max-width: 500px; margin: auto; }
+        label { display: block; margin-top: 15px; }
+        input, textarea { width: 100%; padding: 8px; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        button { margin-top: 20px; padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 25px; background: #f1f1f1; padding: 15px; border-radius: 6px; min-height: 40px; }
+        .article-details { line-height: 1.7; }
+        .error { color: #b30000; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Search Article by Title</h2>
+        <label for="token">JWT Token</label>
+        <input type="text" id="token" placeholder="Enter your token here (from login)">
+
+        <label for="title">Article Title</label>
+        <input type="text" id="title" placeholder="e.g. Getting Started with ASP.NET Core 8">
+
+        <button onclick="fetchArticle()">Search</button>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = "https://localhost:7232";
+
+        async function fetchArticle() {
+            const title = document.getElementById('title').value;
+            const token = document.getElementById('token').value;
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Loading...';
+
+            const url = `${API_BASE}/api/Articles/title/${encodeURIComponent(title)}`;
+
+            try {
+                const res = await fetch(url, {
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.innerHTML = renderArticle(data);
+                } else {
+                    resultDiv.innerHTML = `<span class='error'>Error: ${data.error || res.statusText}<br>${data.details || ''}</span>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = "<span class='error'>A connection error occurred.</span>";
+            }
+        }
+
+        function renderArticle(article) {
+            if (!article || !article.title) return '<span class="error">No article found with this title.</span>';
+            return `<div class='article-details'>
+                <strong>Title:</strong> ${article.title}<br>
+                <strong>Author:</strong> ${article.author}<br>
+                <strong>Created At:</strong> ${article.createdAt ? new Date(article.createdAt).toLocaleString() : ''}<br>
+                <strong>Description:</strong> ${article.description}<br>
+                <strong>Content:</strong> <div style='white-space:pre-line'>${article.content}</div>
+                <strong>Tags:</strong> ${article.tags}<br>
+                <strong>View Count:</strong> ${article.viewCount}
+            </div>`;
+        }
+    </script>
+</body>
+</html> 
