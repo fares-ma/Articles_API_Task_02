@@ -14,5 +14,9 @@ namespace Core.Services.Abstraction
         Task<Article> UpdateArticleAsync(Article article);
         Task<bool> DeleteArticleAsync(int id);
         Task<PaginationResult<Article>> GetArticlesByNewspaperAsync(int newspaperId, PaginationParameters parameters);
+        Task UploadFileToS3Async(string filePath, string keyName);
+        Task DownloadFileFromS3Async(string keyName, string destinationPath);
+        Task<List<string>> ListS3ObjectsAsync(string prefix = null);
+        Task DeleteS3ObjectAsync(string keyName);
     }
 } 

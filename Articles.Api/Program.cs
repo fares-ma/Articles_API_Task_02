@@ -86,6 +86,7 @@ namespace Articles.Api
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddAWSService<IAmazonS3>();
             builder.Services.AddScoped<Core.Services.IS3ArticleProvider, Core.Services.S3ArticleProvider>();
+            builder.Services.AddScoped<IS3FileProvider, S3FileProvider>();
 
             var app = builder.Build();
 

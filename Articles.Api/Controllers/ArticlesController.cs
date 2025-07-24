@@ -98,10 +98,15 @@ namespace Articles.Api.Controllers
                 var articleDto = _mapper.Map<ArticleDto>(article);
                 return Ok(articleDto);
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException ex) when (ex.Message.Contains("S3 service is currently unavailable") || ex.Message.Contains("S3 service error") || ex.Message.Contains("Error reading from S3"))
             {
-                _logger.LogError(ex, "Service error when retrieving article by title: {Title}", title);
-                return StatusCode(503, new { error = "Service is currently unavailable", details = ex.Message });
+                _logger.LogError(ex, "S3 error while getting article by title");
+                return StatusCode(503, "S3 server is currently unavailable. Please try again later or contact support.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while getting article by title");
+                return StatusCode(500, "An unexpected error occurred. Please try again later.");
             }
         }
 
@@ -189,6 +194,86 @@ namespace Articles.Api.Controllers
             var parameters = CreatePaginationParameters(pageNumber, pageSize);
             var result = await _articleService.GetArticlesByNewspaperAsync(newspaperId, parameters);
             return Ok(CreateDtoPaginationResult(result));
+        }
+
+        [HttpPost("s3/upload")]
+        public async Task<IActionResult> UploadFileToS3([FromQuery] string filePath, [FromQuery] string keyName)
+        {
+            try
+            {
+                await _articleService.UploadFileToS3Async(filePath, keyName);
+                return Ok("Upload completed");
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("S3 service is currently unavailable") || ex.Message.Contains("S3 service error") || ex.Message.Contains("Error reading from S3"))
+            {
+                _logger.LogError(ex, "S3 error while uploading file");
+                return StatusCode(503, "S3 server is currently unavailable. Please try again later or contact support.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while uploading file to S3");
+                return StatusCode(500, "An unexpected error occurred. Please try again later.");
+            }
+        }
+
+        [HttpGet("s3/download")]
+        public async Task<IActionResult> DownloadFileFromS3([FromQuery] string keyName, [FromQuery] string destinationPath)
+        {
+            try
+            {
+                await _articleService.DownloadFileFromS3Async(keyName, destinationPath);
+                return Ok("Download completed");
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("S3 service is currently unavailable") || ex.Message.Contains("S3 service error") || ex.Message.Contains("Error reading from S3"))
+            {
+                _logger.LogError(ex, "S3 error while downloading file");
+                return StatusCode(503, "S3 server is currently unavailable. Please try again later or contact support.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while downloading file from S3");
+                return StatusCode(500, "An unexpected error occurred. Please try again later.");
+            }
+        }
+
+        [HttpGet("s3/list")]
+        public async Task<IActionResult> ListS3Objects([FromQuery] string prefix = null)
+        {
+            try
+            {
+                var result = await _articleService.ListS3ObjectsAsync(prefix);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("S3 service is currently unavailable") || ex.Message.Contains("S3 service error") || ex.Message.Contains("Error reading from S3"))
+            {
+                _logger.LogError(ex, "S3 error while listing objects");
+                return StatusCode(503, "S3 server is currently unavailable. Please try again later or contact support.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while listing S3 objects");
+                return StatusCode(500, "An unexpected error occurred. Please try again later.");
+            }
+        }
+
+        [HttpDelete("s3/delete")]
+        public async Task<IActionResult> DeleteS3Object([FromQuery] string keyName)
+        {
+            try
+            {
+                await _articleService.DeleteS3ObjectAsync(keyName);
+                return Ok("Object deleted successfully");
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("S3 service is currently unavailable") || ex.Message.Contains("S3 service error") || ex.Message.Contains("Error reading from S3"))
+            {
+                _logger.LogError(ex, "S3 error while deleting object");
+                return StatusCode(503, "S3 server is currently unavailable. Please try again later or contact support.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while deleting S3 object");
+                return StatusCode(500, "An unexpected error occurred. Please try again later.");
+            }
         }
     }
 } 

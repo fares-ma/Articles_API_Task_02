@@ -48,7 +48,12 @@
                 if (res.ok) {
                     resultDiv.innerHTML = renderArticle(data);
                 } else {
-                    resultDiv.innerHTML = `<span class='error'>Error: ${data.error || res.statusText}<br>${data.details || ''}</span>`;
+                    // Handle S3 connection error message
+                    if (typeof data === 'string' && data === 'There is a problem connecting to the S3 service. Please try again later.') {
+                        resultDiv.innerHTML = `<span class='error'>There is a problem connecting to the S3 service. Please try again later.</span>`;
+                    } else {
+                        resultDiv.innerHTML = `<span class='error'>Error: ${data.error || res.statusText}<br>${data.details || ''}</span>`;
+                    }
                 }
             } catch (err) {
                 resultDiv.innerHTML = "<span class='error'>A connection error occurred.</span>";

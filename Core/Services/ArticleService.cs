@@ -22,13 +22,15 @@ namespace Core.Services
         private readonly IMemoryCache _cache;
         private readonly bool _useS3;
         private readonly IS3ArticleProvider _s3ArticleProvider;
+        private readonly IS3FileProvider _s3FileProvider;
 
         public ArticleService(
             IArticleRepository articleRepository, 
             IConfiguration configuration,
             IMapper mapper,
             IMemoryCache cache,
-            IS3ArticleProvider s3ArticleProvider)
+            IS3ArticleProvider s3ArticleProvider,
+            IS3FileProvider s3FileProvider)
         {
             _articleRepository = articleRepository;
             _configuration = configuration;
@@ -36,6 +38,7 @@ namespace Core.Services
             _cache = cache;
             _useS3 = bool.TryParse(_configuration["UseS3"], out bool useS3) && useS3;
             _s3ArticleProvider = s3ArticleProvider;
+            _s3FileProvider = s3FileProvider;
         }
 
         public async Task<Article?> GetArticleByIdAsync(int id)
@@ -201,6 +204,30 @@ namespace Core.Services
             var articlesByNewspaper = await _articleRepository.GetByNewspaperAsync(newspaperId);
             var totalCount = await _articleRepository.GetByNewspaperCountAsync(newspaperId);
             return CreatePaginationResult(articlesByNewspaper, totalCount, parameters);
+        }
+
+        public async Task UploadFileToS3Async(string filePath, string keyName)
+        {
+            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
+            await _s3FileProvider.UploadFileAsync(filePath, keyName);
+        }
+
+        public async Task DownloadFileFromS3Async(string keyName, string destinationPath)
+        {
+            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
+            await _s3FileProvider.DownloadFileAsync(keyName, destinationPath);
+        }
+
+        public async Task<List<string>> ListS3ObjectsAsync(string prefix = null)
+        {
+            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
+            return await _s3FileProvider.ListObjectsAsync(prefix);
+        }
+
+        public async Task DeleteS3ObjectAsync(string keyName)
+        {
+            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
+            await _s3FileProvider.DeleteObjectAsync(keyName);
         }
     }
 } 
