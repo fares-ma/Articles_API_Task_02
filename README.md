@@ -136,6 +136,21 @@ dotnet test Articles_API_Task_01.sln
 - Tighten CORS origins to trusted clients only.
 - Use HTTPS and secure secret management.
 
+## Deploy to ASPMonster (Visual Studio)
+
+1. Right click the API project and select Publish.
+2. Create or select a Web Deploy profile from your hosting panel.
+3. Set Configuration to Release and Target Runtime to Portable.
+4. Publish.
+
+After publishing, verify these URLs:
+
+- Root: [http://faresarticles.runasp.net/](http://faresarticles.runasp.net/)
+- Health: [http://faresarticles.runasp.net/health](http://faresarticles.runasp.net/health)
+- Swagger: [http://faresarticles.runasp.net/swagger](http://faresarticles.runasp.net/swagger)
+
+If Swagger does not open, republish latest code and recycle the app pool from hosting panel.
+
 ## Project Structure
 
 ```text
