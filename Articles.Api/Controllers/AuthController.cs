@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Core.Services;
 using Shared.DTOs;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Articles.Api.Controllers
 {
@@ -18,52 +19,93 @@ namespace Articles.Api.Controllers
         }
 
         [HttpPost("login")]
-        public ActionResult<TokenDto> Login(LoginDto loginDto)
+        public ActionResult<TokenDto> Login([FromBody] LoginDto loginDto)
         {
-            try
+            if (loginDto == null)
             {
-                if (string.IsNullOrEmpty(loginDto.Username) || string.IsNullOrEmpty(loginDto.Password))
-                {
-                    return BadRequest(new { error = "Username and password are required" });
-                }
-
-                if (_jwtService.ValidateCredentials(loginDto.Username, loginDto.Password))
-                {
-                    var token = _jwtService.GenerateToken(loginDto.Username);
-                    _logger.LogInformation("User {Username} logged in successfully", loginDto.Username);
-                    return Ok(token);
-                }
-
-                _logger.LogWarning("Failed login attempt for user {Username}", loginDto.Username);
-                return Unauthorized(new { error = "Invalid username or password" });
+                return BadRequest(new { error = "Request body is required" });
             }
-            catch (Exception ex)
+
+            if (!ModelState.IsValid)
             {
-                _logger.LogError(ex, "Error during login for user {Username}", loginDto.Username);
-                return StatusCode(500, new { error = "Internal server error" });
+                return ValidationProblem(ModelState);
             }
+
+            var username = loginDto.Username.Trim();
+            var password = loginDto.Password;
+
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            {
+                return BadRequest(new { error = "Username and password are required" });
+            }
+
+            if (_jwtService.ValidateCredentials(username, password))
+            {
+                var token = _jwtService.GenerateToken(username);
+                _logger.LogInformation("User {Username} logged in successfully", username);
+                return Ok(token);
+            }
+
+            _logger.LogWarning("Failed login attempt for user {Username}", username);
+            return Unauthorized(new { error = "Invalid username or password" });
         }
 
         [HttpPost("validate")]
-        public ActionResult ValidateToken([FromHeader(Name = "Authorization")] string authorization)
+        [Authorize]
+        public ActionResult ValidateToken()
         {
-            if (string.IsNullOrEmpty(authorization) || !authorization.StartsWith("Bearer "))
+            var username = User.Identity?.Name;
+            var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+            
+            _logger.LogInformation("Token validated successfully for user {Username}", username);
+            
+            return Ok(new 
+            { 
+                message = "Token is valid",
+                username = username,
+                claims = claims,
+                timestamp = DateTime.UtcNow
+            });
+        }
+
+        [HttpPost("validate-header")]
+        public ActionResult ValidateTokenFromHeader([FromHeader(Name = "Authorization")] string authorization)
+        {
+            if (string.IsNullOrEmpty(authorization))
             {
-                return Unauthorized(new { error = "Invalid token format" });
+                return Unauthorized(new { error = "Authorization header is required" });
             }
 
-            var token = authorization.Substring("Bearer ".Length);
-            
-            try
+            if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
-                // Token validation logic would go here
-                // For now, we'll just return OK if the token is present
-                return Ok(new { message = "Token is valid" });
+                return Unauthorized(new { error = "Invalid token format. Use 'Bearer {token}'" });
             }
-            catch (Exception ex)
+
+            var token = authorization.Substring("Bearer ".Length).Trim();
+            
+            if (string.IsNullOrEmpty(token))
             {
-                _logger.LogError(ex, "Error validating token");
-                return Unauthorized(new { error = "Invalid token" });
+                return Unauthorized(new { error = "Token is empty" });
+            }
+
+            var validationResult = _jwtService.ValidateToken(token);
+
+            if (validationResult.IsValid)
+            {
+                _logger.LogInformation("Token validated successfully for user {Username}", validationResult.Username);
+                
+                return Ok(new 
+                { 
+                    message = "Token is valid",
+                    username = validationResult.Username,
+                    role = validationResult.Role,
+                    expiresAt = validationResult.ExpiresAt
+                });
+            }
+            else
+            {
+                _logger.LogWarning("Token validation failed: {Error}", validationResult.ErrorMessage);
+                return Unauthorized(new { error = validationResult.ErrorMessage });
             }
         }
     }

@@ -1,22 +1,26 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Core.Services;
 using Core.Services.Abstraction;
 using Infrastructure.Persistence.Data;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Articles.Api.Mapping;
+using Articles.Api.Configuration;
 using Serilog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Amazon.S3;
+using Microsoft.OpenApi.Models;
+using Articles.Api.Middleware;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace Articles.Api
 {
-    
     public class Program
     {
-        public static async Task Main(string[] args)
+        public static void Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.Console()
@@ -29,28 +33,96 @@ namespace Articles.Api
 
             // Add services to the container.
             builder.Services.AddControllers();
-            
-            // Add CORS
+
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll",
-                    builder =>
+                options.AddPolicy("RestrictedCors", corsBuilder =>
+                {
+                    var configuredOrigins = builder.Configuration
+                        .GetSection("Cors:AllowedOrigins")
+                        .Get<string[]>() ?? Array.Empty<string>();
+
+                    if (configuredOrigins.Length > 0)
                     {
-                        builder.AllowAnyOrigin()
-                               .AllowAnyMethod()
-                               .AllowAnyHeader();
-                    });
+                        corsBuilder.WithOrigins(configuredOrigins)
+                            .AllowAnyMethod()
+                            .AllowAnyHeader();
+                        return;
+                    }
+
+                    if (builder.Environment.IsDevelopment())
+                    {
+                        corsBuilder.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:8080")
+                            .AllowAnyMethod()
+                            .AllowAnyHeader();
+                        return;
+                    }
+
+                    throw new InvalidOperationException("No CORS origins configured for non-development environment.");
+                });
             });
 
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo 
+                { 
+                    Title = "Articles API", 
+                    Version = "v1",
+                    Description = "A .NET 10 Web API for managing articles and newspapers",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Articles API Support",
+                        Email = "support@articlesapi.com"
+                    }
+                });
+
+                // Configure JWT Authentication for Swagger
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                    Name = "Authorization",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        new string[] {}
+                    }
+                });
+
+                // Add XML comments if available
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                if (File.Exists(xmlPath))
+                {
+                    c.IncludeXmlComments(xmlPath);
+                }
+            });
 
             // Add JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-            var secretKey = jwtSettings["SecretKey"];
+            var secretKey = jwtSettings["SecretKey"] ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
+
+            if (string.IsNullOrEmpty(secretKey))
+            {
+                throw new InvalidOperationException("JWT SecretKey is not configured");
+            }
 
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
@@ -63,30 +135,51 @@ namespace Articles.Api
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = issuer,
                         ValidAudience = audience,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+                        ClockSkew = TimeSpan.Zero
                     };
                 });
 
-            // Add DbContext
+            // Add DbContext - Enable Database
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+                    sqlServerOptionsAction: sqlOptions =>
+                    {
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 5,
+                            maxRetryDelay: TimeSpan.FromSeconds(30),
+                            errorNumbersToAdd: null);
+                    }));
 
             // Add AutoMapper
-            builder.Services.AddAutoMapper(typeof(ArticleMappingProfile), typeof(NewspaperMappingProfile));
+            var mapperLoggerFactory = LoggerFactory.Create(builder => { });
+            var mapperConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile<ArticleMappingProfile>();
+                cfg.AddProfile<NewspaperMappingProfile>();
+            }, mapperLoggerFactory);
+            builder.Services.AddSingleton(mapperConfig);
+            builder.Services.AddSingleton<IMapper>(sp => sp.GetRequiredService<MapperConfiguration>().CreateMapper());
             
             // Add Memory Cache
             builder.Services.AddMemoryCache();
 
-            // Add Services
+            // Validate storage configuration
+            ServiceRegistration.ValidateStorageConfiguration(builder.Configuration);
+            
+            // Add Services with Repository Pattern
             builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
-            builder.Services.AddScoped<IArticleService, ArticleService>();
             builder.Services.AddScoped<INewspaperRepository, NewspaperRepository>();
             builder.Services.AddScoped<INewspaperService, NewspaperService>();
             builder.Services.AddScoped<JwtService>();
-            builder.Services.AddAWSService<IAmazonS3>();
-            builder.Services.AddScoped<Core.Services.IS3ArticleProvider, Core.Services.S3ArticleProvider>();
-            builder.Services.AddScoped<IS3FileProvider, S3FileProvider>();
+            
+            // Configure Article Services based on storage provider
+            builder.Services.AddArticleServices(builder.Configuration);
+            
+            // Log storage provider selection
+            var storageProvider = ServiceRegistration.GetStorageProviderName(builder.Configuration);
+            Log.Information("Application configured to use {StorageProvider} for article storage", storageProvider);
 
             var app = builder.Build();
 
@@ -94,24 +187,47 @@ namespace Articles.Api
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
-                app.UseSwaggerUI();
+                
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Articles API V1");
+                    c.RoutePrefix = "swagger"; // Serve Swagger UI at /swagger
+                });
             }
 
-            app.UseHttpsRedirection();
+            // Only use HTTPS redirection in production
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             // Use CORS
-            app.UseCors("AllowAll");
+            app.UseCors("RestrictedCors");
+
+            app.UseMiddleware<GlobalExceptionHandler>();
 
             app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();
 
-            // Seed data
+            // Apply migrations and seed data
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                await DataSeeder.SeedDataAsync(context);
+                
+                try
+                {
+                    // Apply migrations to create/update database
+                    context.Database.Migrate();
+                    
+                    // Seed data
+                    DataSeeder.SeedDataAsync(context).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error during database migration or seeding");
+                }
             }
 
             app.Run();

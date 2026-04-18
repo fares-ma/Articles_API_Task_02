@@ -5,7 +5,7 @@ namespace Core.Services.Abstraction
 {
     public interface INewspaperRepository : IRepository<Newspaper>
     {
-        Task<PaginationResult<Newspaper>> GetAllAsync(PaginationParameters parameters);
+        new Task<PaginationResult<Newspaper>> GetAllAsync(PaginationParameters parameters);
         Task<Newspaper?> GetByNameAsync(string name);
         Task<IEnumerable<Newspaper>> GetActiveAsync();
         Task<bool> ExistsByNameAsync(string name);

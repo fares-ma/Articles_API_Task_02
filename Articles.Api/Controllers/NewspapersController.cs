@@ -3,33 +3,10 @@ using Core.Services.Abstraction;
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
 using Shared.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Articles.Api.Controllers
 {
-
-    #region summary
-    /// NewspapersController handles HTTP requests for newspaper-related operations.
-    /// 
-    /// Purpose:
-    /// - Provides RESTful API endpoints for newspaper management
-    /// - Handles CRUD operations for newspapers
-    /// - Manages newspaper metadata and relationships
-    /// - Provides newspaper listing and filtering capabilities
-    /// - Supports newspaper-article relationship queries
-    /// 
-    /// Dependencies:
-    /// - INewspaperService for business logic operations
-    /// - AutoMapper for DTO transformations
-    /// - ASP.NET Core MVC framework
-    /// - Shared DTOs and models for data transfer
-    /// 
-    /// Alternatives:
-    /// - Could implement newspaper categories or types
-    /// - Could add support for newspaper subscriptions
-    /// - Could implement newspaper analytics and metrics
-    /// - Could add support for newspaper branding and themes
-
-    #endregion
     [ApiController]
     [Route("api/[controller]")]
     public class NewspapersController : ControllerBase
@@ -48,6 +25,10 @@ namespace Articles.Api.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 50) pageSize = 50;
+
             var parameters = new PaginationParameters
             {
                 PageNumber = pageNumber,
@@ -108,57 +89,35 @@ namespace Articles.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<NewspaperDto>> CreateNewspaper(CreateNewspaperDto createNewspaperDto)
         {
-            try
-            {
-                var newspaper = _mapper.Map<Core.Domain.Models.Newspaper>(createNewspaperDto);
-                var createdNewspaper = await _newspaperService.CreateNewspaperAsync(newspaper);
-                var newspaperDto = _mapper.Map<NewspaperDto>(createdNewspaper);
-                
-                return CreatedAtAction(nameof(GetNewspaperById), new { id = newspaperDto.Id }, newspaperDto);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var newspaper = _mapper.Map<Core.Domain.Models.Newspaper>(createNewspaperDto);
+            var createdNewspaper = await _newspaperService.CreateNewspaperAsync(newspaper);
+            var newspaperDto = _mapper.Map<NewspaperDto>(createdNewspaper);
+            
+            return CreatedAtAction(nameof(GetNewspaperById), new { id = newspaperDto.Id }, newspaperDto);
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<ActionResult<NewspaperDto>> UpdateNewspaper(int id, UpdateNewspaperDto updateNewspaperDto)
         {
-            try
-            {
-                var newspaper = _mapper.Map<Core.Domain.Models.Newspaper>(updateNewspaperDto);
-                newspaper.Id = id;
-                
-                var updatedNewspaper = await _newspaperService.UpdateNewspaperAsync(newspaper);
-                var newspaperDto = _mapper.Map<NewspaperDto>(updatedNewspaper);
-                
-                return Ok(newspaperDto);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var newspaper = _mapper.Map<Core.Domain.Models.Newspaper>(updateNewspaperDto);
+            newspaper.Id = id;
+            
+            var updatedNewspaper = await _newspaperService.UpdateNewspaperAsync(newspaper);
+            var newspaperDto = _mapper.Map<NewspaperDto>(updatedNewspaper);
+            
+            return Ok(newspaperDto);
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<ActionResult> DeleteNewspaper(int id)
         {
-            try
-            {
-                var result = await _newspaperService.DeleteNewspaperAsync(id);
-                if (result)
-                {
-                    return NoContent();
-                }
-                return NotFound($"Newspaper with ID {id} not found");
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var result = await _newspaperService.DeleteNewspaperAsync(id);
+            return NoContent();
         }
     }
 } 

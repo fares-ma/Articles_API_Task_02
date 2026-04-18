@@ -11,20 +11,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Core.Domain.Exceptions;
 
 namespace Core.Services
 {
-    public class S3ArticleProvider : IS3ArticleProvider
+    public class S3ArticleRepository : IS3ArticleProvider
     {
         private readonly IAmazonS3 _s3Client;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
-        private readonly string _bucketName;
+        private readonly string? _bucketName;
         private readonly string _articlesKey;
         private const string S3_ARTICLES_CACHE_KEY = "S3_ALL_ARTICLES";
         private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(15);
 
-        public S3ArticleProvider(IAmazonS3 s3Client, IMapper mapper, IMemoryCache cache, IConfiguration configuration)
+        public S3ArticleRepository(IAmazonS3 s3Client, IMapper mapper, IMemoryCache cache, IConfiguration configuration)
         {
             _s3Client = s3Client;
             _mapper = mapper;
@@ -45,7 +46,7 @@ namespace Core.Services
                 return null;
 
             string cacheKey = $"{S3_ARTICLES_CACHE_KEY}_TITLE_{title.ToLower()}";
-            if (_cache.TryGetValue(cacheKey, out Article cachedArticle))
+            if (_cache.TryGetValue(cacheKey, out Article? cachedArticle))
             {
                 return cachedArticle;
             }
@@ -63,9 +64,9 @@ namespace Core.Services
 
         public async Task<List<Article>> GetAllArticlesAsync()
         {
-            if (_cache.TryGetValue(S3_ARTICLES_CACHE_KEY, out List<Article> cachedArticles))
+            if (_cache.TryGetValue(S3_ARTICLES_CACHE_KEY, out List<Article>? cachedArticles))
             {
-                return cachedArticles;
+                return cachedArticles ?? new List<Article>();
             }
 
             try
@@ -73,6 +74,11 @@ namespace Core.Services
                 if (_s3Client == null)
                 {
                     throw new InvalidOperationException("S3 client is not configured properly");
+                }
+
+                if (string.IsNullOrEmpty(_bucketName))
+                {
+                    throw new S3ServiceException("read", string.Empty, _articlesKey, "S3 bucket name is not configured");
                 }
 
                 var request = new GetObjectRequest
@@ -93,11 +99,11 @@ namespace Core.Services
             }
             catch (AmazonS3Exception ex)
             {
-                throw new InvalidOperationException($"S3 service error: {ex.Message}");
+                throw new S3ServiceException("read", _bucketName ?? string.Empty, _articlesKey, ex.Message);
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Error reading from S3: {ex.Message}");
+                throw new S3ServiceException("read", $"Error reading from S3: {ex.Message}");
             }
         }
     }

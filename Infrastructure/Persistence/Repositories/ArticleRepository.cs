@@ -2,6 +2,7 @@ using Core.Domain.Models;
 using Core.Services.Abstraction;
 using Infrastructure.Persistence.Data;
 using Microsoft.EntityFrameworkCore;
+using Shared.Models;
 
 namespace Infrastructure.Persistence.Repositories
 {
@@ -31,7 +32,7 @@ namespace Infrastructure.Persistence.Repositories
 
     public class ArticleRepository : Repository<Article>, IArticleRepository
     {
-        private readonly ApplicationDbContext _context;
+        private readonly new ApplicationDbContext _context;
 
         public ArticleRepository(ApplicationDbContext context) : base(context)
         {
@@ -44,23 +45,61 @@ namespace Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(a => a.Title == title);
         }
 
-        public async Task<IEnumerable<Article>> GetByTagAsync(string tag)
+        public async Task<PaginationResult<Article>> GetByTagAsync(string tag, PaginationParameters parameters)
         {
-            return await _context.Articles
+            if (parameters.PageNumber < 1) parameters.PageNumber = 1;
+            if (parameters.PageSize < 1) parameters.PageSize = 10;
+            if (parameters.PageSize > 50) parameters.PageSize = 50;
+
+            var totalCount = await _context.Articles
+                .Where(a => a.Tags.Contains(tag))
+                .CountAsync();
+
+            var items = await _context.Articles
                 .Where(a => a.Tags.Contains(tag))
                 .OrderByDescending(a => a.CreatedAt)
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
                 .ToListAsync();
+
+            return new PaginationResult<Article>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = parameters.PageNumber,
+                PageSize = parameters.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
+            };
         }
 
-        public async Task<IEnumerable<Article>> GetPublishedAsync()
+        public async Task<PaginationResult<Article>> GetPublishedAsync(PaginationParameters parameters)
         {
-            return await _context.Articles
+            if (parameters.PageNumber < 1) parameters.PageNumber = 1;
+            if (parameters.PageSize < 1) parameters.PageSize = 10;
+            if (parameters.PageSize > 50) parameters.PageSize = 50;
+
+            var totalCount = await _context.Articles
+                .Where(a => a.IsPublished)
+                .CountAsync();
+
+            var items = await _context.Articles
                 .Where(a => a.IsPublished)
                 .OrderByDescending(a => a.CreatedAt)
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
                 .ToListAsync();
+
+            return new PaginationResult<Article>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = parameters.PageNumber,
+                PageSize = parameters.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
+            };
         }
 
-        public async Task<int> GetTotalCountAsync()
+        public new async Task<int> GetTotalCountAsync()
         {
             return await _context.Articles.CountAsync();
         }
@@ -84,12 +123,31 @@ namespace Infrastructure.Persistence.Repositories
             return await _context.Articles.AnyAsync(a => a.Title == title);
         }
 
-        public async Task<IEnumerable<Article>> GetByNewspaperAsync(int newspaperId)
+        public async Task<PaginationResult<Article>> GetByNewspaperAsync(int newspaperId, PaginationParameters parameters)
         {
-            return await _context.Articles
+            if (parameters.PageNumber < 1) parameters.PageNumber = 1;
+            if (parameters.PageSize < 1) parameters.PageSize = 10;
+            if (parameters.PageSize > 50) parameters.PageSize = 50;
+
+            var totalCount = await _context.Articles
+                .Where(a => a.NewspaperId == newspaperId)
+                .CountAsync();
+
+            var items = await _context.Articles
                 .Where(a => a.NewspaperId == newspaperId)
                 .OrderByDescending(a => a.CreatedAt)
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
                 .ToListAsync();
+
+            return new PaginationResult<Article>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = parameters.PageNumber,
+                PageSize = parameters.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
+            };
         }
 
         public async Task<int> GetByNewspaperCountAsync(int newspaperId)

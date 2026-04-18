@@ -1,46 +1,24 @@
-using Core.Domain.Models;
 using Core.Services;
 using Core.Services.Abstraction;
-using FluentAssertions;
-using Moq;
-using Shared.Models;
+using Core.Domain.Models;
 using Microsoft.Extensions.Configuration;
-using AutoMapper;
 using Microsoft.Extensions.Caching.Memory;
-using Amazon.S3;
+using Moq;
+using FluentAssertions;
+using Shared.Models;
+using AutoMapper;
+using Core.Domain.Exceptions;
 
 namespace Articles.Tests.Services
 {
-
-    #region summary
-    /// ArticleServiceTests provides unit tests for ArticleService business logic.
-    /// 
-    /// Purpose:
-    /// - Tests article business logic and validation rules
-    /// - Verifies CRUD operations with proper error handling
-    /// - Tests pagination and filtering functionality
-    /// - Ensures data integrity and business rule enforcement
-    /// - Validates service layer behavior in isolation
-    /// 
-    /// Dependencies:
-    /// - xUnit for test framework
-    /// - Moq for mocking dependencies
-    /// - FluentAssertions for readable assertions
-    /// - Core.Services for service under test
-    /// 
-    /// Alternatives:
-    /// - Could implement integration tests with real database
-    /// - Could use different mocking frameworks (NSubstitute, FakeItEasy)
-    /// - Could implement property-based testing
-    /// - Could add performance testing scenarios
-
-    #endregion
     public class ArticleServiceTests
     {
         private readonly Mock<IArticleRepository> _mockRepository;
         private readonly Mock<IConfiguration> _mockConfiguration;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<IMemoryCache> _mockCache;
+        private readonly Mock<IS3ArticleProvider> _mockS3ArticleProvider;
+        private readonly Mock<IS3FileProvider> _mockS3FileProvider;
         private readonly ArticleService _service;
 
         public ArticleServiceTests()
@@ -49,6 +27,9 @@ namespace Articles.Tests.Services
             _mockConfiguration = new Mock<IConfiguration>();
             _mockMapper = new Mock<IMapper>();
             _mockCache = new Mock<IMemoryCache>();
+            _mockS3ArticleProvider = new Mock<IS3ArticleProvider>();
+            _mockS3FileProvider = new Mock<IS3FileProvider>();
+
             
             // Setup configuration section for UseS3
             var mockSection = new Mock<IConfigurationSection>();
@@ -67,7 +48,9 @@ namespace Articles.Tests.Services
                 _mockRepository.Object,
                 _mockConfiguration.Object,
                 _mockMapper.Object,
-                _mockCache.Object);
+                _mockCache.Object,
+                _mockS3ArticleProvider.Object,
+                _mockS3FileProvider.Object);
         }
 
         [Fact]
@@ -110,8 +93,16 @@ namespace Articles.Tests.Services
             };
 
             var parameters = new PaginationParameters { PageNumber = 1, PageSize = 2 };
-            _mockRepository.Setup(r => r.GetAllAsync()).ReturnsAsync(articles);
-            _mockRepository.Setup(r => r.GetTotalCountAsync()).ReturnsAsync(3);
+            var paginationResult = new PaginationResult<Article>
+            {
+                Items = articles.Take(2),
+                TotalCount = 3,
+                PageNumber = 1,
+                PageSize = 2,
+                TotalPages = 2
+            };
+            
+            _mockRepository.Setup(r => r.GetAllAsync(parameters)).ReturnsAsync(paginationResult);
 
             // Act
             var result = await _service.GetAllArticlesAsync(parameters);
@@ -136,8 +127,16 @@ namespace Articles.Tests.Services
             };
 
             var parameters = new PaginationParameters { PageNumber = 1, PageSize = 10 };
-            _mockRepository.Setup(r => r.GetPublishedAsync()).ReturnsAsync(publishedArticles);
-            _mockRepository.Setup(r => r.GetPublishedCountAsync()).ReturnsAsync(2);
+            var paginationResult = new PaginationResult<Article>
+            {
+                Items = publishedArticles,
+                TotalCount = 2,
+                PageNumber = 1,
+                PageSize = 10,
+                TotalPages = 1
+            };
+            
+            _mockRepository.Setup(r => r.GetPublishedAsync(parameters)).ReturnsAsync(paginationResult);
 
             // Act
             var result = await _service.GetPublishedArticlesAsync(parameters);
@@ -146,6 +145,114 @@ namespace Articles.Tests.Services
             result.Should().NotBeNull();
             result.Items.Should().HaveCount(2);
             result.Items.Should().OnlyContain(a => a.IsPublished);
+        }
+
+        [Fact]
+        public async Task CreateArticleAsync_WithDuplicateTitle_ThrowsDuplicateEntityException()
+        {
+            // Arrange
+            var article = new Article { Title = "Duplicate Title" };
+            _mockRepository.Setup(r => r.ExistsByTitleAsync("Duplicate Title")).ReturnsAsync(true);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<DuplicateEntityException>(
+                () => _service.CreateArticleAsync(article));
+
+            exception.Message.Should().Contain("Article with title 'Duplicate Title' already exists");
+            exception.EntityName.Should().Be("Article");
+            exception.PropertyName.Should().Be("title");
+            exception.PropertyValue.Should().Be("Duplicate Title");
+        }
+
+        [Fact]
+        public async Task UpdateArticleAsync_WithNonExistentId_ThrowsArticleNotFoundException()
+        {
+            // Arrange
+            var article = new Article { Id = 999, Title = "Updated Title" };
+            _mockRepository.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((Article?)null);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArticleNotFoundException>(
+                () => _service.UpdateArticleAsync(article));
+
+            exception.Message.Should().Contain("Article with ID 999 not found");
+        }
+
+        [Fact]
+        public async Task UpdateArticleAsync_WithDuplicateTitle_ThrowsDuplicateEntityException()
+        {
+            // Arrange
+            var existingArticle = new Article { Id = 1, Title = "Original Title" };
+            var updatedArticle = new Article { Id = 1, Title = "Duplicate Title" };
+            
+            _mockRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(existingArticle);
+            _mockRepository.Setup(r => r.ExistsByTitleAsync("Duplicate Title")).ReturnsAsync(true);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<DuplicateEntityException>(
+                () => _service.UpdateArticleAsync(updatedArticle));
+
+            exception.Message.Should().Contain("Article with title 'Duplicate Title' already exists");
+        }
+
+        [Fact]
+        public async Task DeleteArticleAsync_WithNonExistentId_ThrowsArticleNotFoundException()
+        {
+            // Arrange
+            _mockRepository.Setup(r => r.ExistsAsync(999)).ReturnsAsync(false);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArticleNotFoundException>(
+                () => _service.DeleteArticleAsync(999));
+
+            exception.Message.Should().Contain("Article with ID 999 not found");
+        }
+
+        [Fact]
+        public async Task CreateArticleAsync_WithValidData_SetsCreatedAtAndViewCount()
+        {
+            // Arrange
+            var article = new Article { Title = "New Article" };
+            var createdArticle = new Article { Id = 1, Title = "New Article", CreatedAt = DateTime.UtcNow, ViewCount = 0 };
+            
+            _mockRepository.Setup(r => r.ExistsByTitleAsync("New Article")).ReturnsAsync(false);
+            _mockRepository.Setup(r => r.AddAsync(It.IsAny<Article>())).ReturnsAsync(createdArticle);
+
+            // Act
+            var result = await _service.CreateArticleAsync(article);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+            result.ViewCount.Should().Be(0);
+            
+            _mockRepository.Verify(r => r.AddAsync(It.Is<Article>(a => 
+                a.CreatedAt != default && a.ViewCount == 0)), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateArticleAsync_WithValidData_SetsUpdatedAtAndPreservesOriginalData()
+        {
+            // Arrange
+            var existingArticle = new Article { Id = 1, Title = "Original Title", CreatedAt = DateTime.UtcNow.AddDays(-1), ViewCount = 5 };
+            var updatedArticle = new Article { Id = 1, Title = "Updated Title" };
+            var resultArticle = new Article { Id = 1, Title = "Updated Title", UpdatedAt = DateTime.UtcNow };
+            
+            _mockRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(existingArticle);
+            _mockRepository.Setup(r => r.ExistsByTitleAsync("Updated Title")).ReturnsAsync(false);
+            _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<Article>())).ReturnsAsync(resultArticle);
+
+            // Act
+            var result = await _service.UpdateArticleAsync(updatedArticle);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+            
+            _mockRepository.Verify(r => r.UpdateAsync(It.Is<Article>(a => 
+                a.UpdatedAt != default && 
+                a.CreatedAt == existingArticle.CreatedAt && 
+                a.ViewCount == existingArticle.ViewCount)), Times.Once);
         }
     }
 } 

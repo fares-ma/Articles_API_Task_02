@@ -1,6 +1,7 @@
 using Core.Domain.Models;
 using Core.Services.Abstraction;
 using Shared.Models;
+using Core.Domain.Exceptions;
 
 namespace Core.Services
 {
@@ -40,6 +41,11 @@ namespace Core.Services
 
         public async Task<Newspaper> CreateNewspaperAsync(Newspaper newspaper)
         {
+            if (await _newspaperRepository.ExistsByNameAsync(newspaper.Name))
+            {
+                throw new DuplicateEntityException("Newspaper", "name", newspaper.Name);
+            }
+
             newspaper.CreatedAt = DateTime.UtcNow;
             newspaper.IsActive = true;
             return await _newspaperRepository.AddAsync(newspaper);
@@ -47,12 +53,33 @@ namespace Core.Services
 
         public async Task<Newspaper> UpdateNewspaperAsync(Newspaper newspaper)
         {
+            var existingNewspaper = await _newspaperRepository.GetByIdAsync(newspaper.Id);
+            if (existingNewspaper == null)
+            {
+                throw new NewspaperNotFoundException(newspaper.Id);
+            }
+
+            // Check for name duplication if changed
+            if (newspaper.Name != existingNewspaper.Name && 
+                await _newspaperRepository.ExistsByNameAsync(newspaper.Name))
+            {
+                throw new DuplicateEntityException("Newspaper", "name", newspaper.Name);
+            }
+
             newspaper.UpdatedAt = DateTime.UtcNow;
+            newspaper.CreatedAt = existingNewspaper.CreatedAt;
+            newspaper.IsActive = existingNewspaper.IsActive;
+
             return await _newspaperRepository.UpdateAsync(newspaper);
         }
 
         public async Task<bool> DeleteNewspaperAsync(int id)
         {
+            if (!await _newspaperRepository.ExistsAsync(id))
+            {
+                throw new NewspaperNotFoundException(id);
+            }
+
             return await _newspaperRepository.DeleteAsync(id);
         }
 

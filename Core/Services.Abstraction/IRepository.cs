@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Shared.Models;
 
 namespace Core.Services.Abstraction
 {
@@ -11,5 +12,9 @@ namespace Core.Services.Abstraction
         Task<T> UpdateAsync(T entity);
         Task<bool> DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
+       
+     
+        Task<PaginationResult<T>> GetAllAsync(PaginationParameters parameters);
+        Task<int> GetTotalCountAsync();
     }
 } 

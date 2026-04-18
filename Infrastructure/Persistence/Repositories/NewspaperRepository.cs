@@ -8,14 +8,14 @@ namespace Infrastructure.Persistence.Repositories
 {
     public class NewspaperRepository : Repository<Newspaper>, INewspaperRepository
     {
-        private readonly ApplicationDbContext _context;
+        private readonly new ApplicationDbContext _context;
 
         public NewspaperRepository(ApplicationDbContext context) : base(context)
         {
             _context = context;
         }
 
-        public async Task<PaginationResult<Newspaper>> GetAllAsync(PaginationParameters parameters)
+        public new async Task<PaginationResult<Newspaper>> GetAllAsync(PaginationParameters parameters)
         {
             var query = _context.Newspapers
                 .Include(n => n.Articles)

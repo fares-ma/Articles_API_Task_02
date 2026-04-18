@@ -9,6 +9,7 @@ using Shared.DTOs;
 using AutoMapper;
 using Microsoft.Extensions.Caching.Memory;
 using System;
+using Core.Domain.Exceptions;
 
 namespace Core.Services
 {
@@ -16,60 +17,57 @@ namespace Core.Services
 
     public class ArticleService : IArticleService
     {
-        private readonly IArticleRepository _articleRepository;
+        private readonly IArticleRepository _SqlarticleRepository;
         private readonly IConfiguration _configuration;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
         private readonly bool _useS3;
-        private readonly IS3ArticleProvider _s3ArticleProvider;
-        private readonly IS3FileProvider _s3FileProvider;
+        private readonly IS3ArticleProvider? _s3ArticleRepository;
+        private readonly IS3FileProvider? _s3FileProvider;
 
         public ArticleService(
             IArticleRepository articleRepository, 
             IConfiguration configuration,
             IMapper mapper,
             IMemoryCache cache,
-            IS3ArticleProvider s3ArticleProvider,
-            IS3FileProvider s3FileProvider)
+            IS3ArticleProvider? s3ArticleProvider = null,
+            IS3FileProvider? s3FileProvider = null)
         {
-            _articleRepository = articleRepository;
+            _SqlarticleRepository = articleRepository;
             _configuration = configuration;
             _mapper = mapper;
             _cache = cache;
-            _useS3 = bool.TryParse(_configuration["UseS3"], out bool useS3) && useS3;
-            _s3ArticleProvider = s3ArticleProvider;
+            _useS3 = bool.TryParse(_configuration["StorageSettings:UseS3"], out bool useS3) && useS3;
+            _s3ArticleRepository = s3ArticleProvider;
             _s3FileProvider = s3FileProvider;
         }
 
         public async Task<Article?> GetArticleByIdAsync(int id)
         {
-            return _useS3 
-                ? await _s3ArticleProvider.GetArticleByIdAsync(id)
-                : await _articleRepository.GetByIdAsync(id);
+            return _useS3 && _s3ArticleRepository != null
+                ? await _s3ArticleRepository.GetArticleByIdAsync(id)
+                : await _SqlarticleRepository.GetByIdAsync(id);
         }
 
         public async Task<Article?> GetArticleByTitleAsync(string title)
         {
-            return _useS3 
-                ? await _s3ArticleProvider.GetArticleByTitleAsync(title)
-                : await _articleRepository.GetByTitleAsync(title);
+            return _useS3 && _s3ArticleRepository != null
+                ? await _s3ArticleRepository.GetArticleByTitleAsync(title)
+                : await _SqlarticleRepository.GetByTitleAsync(title);
         }
 
         public async Task<PaginationResult<Article>> GetAllArticlesAsync(PaginationParameters parameters)
         {
             ValidatePaginationParameters(parameters);
             
-            if (_useS3)
+            if (_useS3 && _s3ArticleRepository != null)
             {
                 return await GetFilteredArticlesFromS3Async(a => true, parameters);
             }
 
-            var allArticles = await _articleRepository.GetAllAsync();
-            var totalCount = await _articleRepository.GetTotalCountAsync();
-            return CreatePaginationResult(allArticles, totalCount, parameters);
+            return await _SqlarticleRepository.GetAllAsync(parameters);
         }
 
-        // Helper method to validate pagination parameters
         private void ValidatePaginationParameters(PaginationParameters parameters)
         {
             if (parameters.PageNumber < 1)
@@ -100,14 +98,14 @@ namespace Core.Services
             };
         }
 
-        // Generic method to handle S3 filtering and pagination
+        
         private async Task<PaginationResult<Article>> GetFilteredArticlesFromS3Async(
             Func<Article, bool> filterPredicate, 
             PaginationParameters parameters)
         {
             try
             {
-                var allArticles = await _s3ArticleProvider.GetAllArticlesAsync();
+                var allArticles = await _s3ArticleRepository!.GetAllArticlesAsync();
                 var filteredArticles = allArticles.Where(filterPredicate).ToList();
                 return CreatePaginationResult(filteredArticles, filteredArticles.Count, parameters);
             }
@@ -121,113 +119,152 @@ namespace Core.Services
         {
             ValidatePaginationParameters(parameters);
             
-            if (_useS3)
+            if (_useS3 && _s3ArticleRepository != null)
             {
                 return await GetFilteredArticlesFromS3Async(
                     a => a.Tags?.Contains(tag, StringComparison.OrdinalIgnoreCase) == true, 
                     parameters);
             }
-
-            var articlesByTag = await _articleRepository.GetByTagAsync(tag);
-            var totalCount = await _articleRepository.GetByTagCountAsync(tag);
-            return CreatePaginationResult(articlesByTag, totalCount, parameters);
+            return await _SqlarticleRepository.GetByTagAsync(tag, parameters);
         }
 
         public async Task<PaginationResult<Article>> GetPublishedArticlesAsync(PaginationParameters parameters)
         {
             ValidatePaginationParameters(parameters);
             
-            if (_useS3)
+            if (_useS3 && _s3ArticleRepository != null)
             {
                 return await GetFilteredArticlesFromS3Async(a => a.IsPublished, parameters);
             }
 
-            var publishedArticles = await _articleRepository.GetPublishedAsync();
-            var totalCount = await _articleRepository.GetPublishedCountAsync();
-            return CreatePaginationResult(publishedArticles, totalCount, parameters);
+            return await _SqlarticleRepository.GetPublishedAsync(parameters);
         }
 
         public async Task<Article> CreateArticleAsync(Article article)
         {
-            if (await _articleRepository.ExistsByTitleAsync(article.Title))
+            if (await _SqlarticleRepository.ExistsByTitleAsync(article.Title))
             {
-                throw new InvalidOperationException($"Article with title '{article.Title}' already exists.");
+                throw new DuplicateEntityException("Article", "title", article.Title);
             }
 
             article.CreatedAt = DateTime.UtcNow;
             article.ViewCount = 0;
 
-            return await _articleRepository.AddAsync(article);
+            return await _SqlarticleRepository.AddAsync(article);
         }
 
         public async Task<Article> UpdateArticleAsync(Article article)
         {
-            var existingArticle = await _articleRepository.GetByIdAsync(article.Id);
+            var existingArticle = await _SqlarticleRepository.GetByIdAsync(article.Id);
             if (existingArticle == null)
             {
-                throw new InvalidOperationException($"Article with ID {article.Id} not found.");
+                throw new ArticleNotFoundException(article.Id);
             }
 
             // Check for title duplication if changed
             if (article.Title != existingArticle.Title && 
-                await _articleRepository.ExistsByTitleAsync(article.Title))
+                await _SqlarticleRepository.ExistsByTitleAsync(article.Title))
             {
-                throw new InvalidOperationException($"Article with title '{article.Title}' already exists.");
+                throw new DuplicateEntityException("Article", "title", article.Title);
             }
 
             article.UpdatedAt = DateTime.UtcNow;
             article.CreatedAt = existingArticle.CreatedAt;
             article.ViewCount = existingArticle.ViewCount;
 
-            return await _articleRepository.UpdateAsync(article);
+            return await _SqlarticleRepository.UpdateAsync(article);
         }
 
         public async Task<bool> DeleteArticleAsync(int id)
         {
-            if (!await _articleRepository.ExistsAsync(id))
+            if (!await _SqlarticleRepository.ExistsAsync(id))
             {
-                throw new InvalidOperationException($"Article with ID {id} not found.");
+                throw new ArticleNotFoundException(id);
             }
 
-            return await _articleRepository.DeleteAsync(id);
+            return await _SqlarticleRepository.DeleteAsync(id);
         }
 
         public async Task<PaginationResult<Article>> GetArticlesByNewspaperAsync(int newspaperId, PaginationParameters parameters)
         {
             ValidatePaginationParameters(parameters);
             
-            if (_useS3)
+            if (_useS3 && _s3ArticleRepository != null)
             {
                 return await GetFilteredArticlesFromS3Async(a => a.NewspaperId == newspaperId, parameters);
             }
 
-            var articlesByNewspaper = await _articleRepository.GetByNewspaperAsync(newspaperId);
-            var totalCount = await _articleRepository.GetByNewspaperCountAsync(newspaperId);
-            return CreatePaginationResult(articlesByNewspaper, totalCount, parameters);
+            return await _SqlarticleRepository.GetByNewspaperAsync(newspaperId, parameters);
         }
 
-        public async Task UploadFileToS3Async(string filePath, string keyName)
+
+        // ===== S3 File Operations =====
+
+        public async Task UploadFileToS3Async(string filePath, string keyName, string? contentType = null)
         {
-            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
-            await _s3FileProvider.UploadFileAsync(filePath, keyName);
+            if (!_useS3 || _s3FileProvider == null)
+            {
+                throw new InvalidOperationException("S3 is not enabled or S3FileProvider is not available.");
+            }
+
+            await _s3FileProvider.UploadFileAsync(filePath, keyName, contentType);
         }
 
-        public async Task DownloadFileFromS3Async(string keyName, string destinationPath)
+        public async Task UploadStreamToS3Async(Stream stream, string keyName, string contentType)
         {
-            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
-            await _s3FileProvider.DownloadFileAsync(keyName, destinationPath);
+            if (!_useS3 || _s3FileProvider == null)
+            {
+                throw new InvalidOperationException("S3 is not enabled or S3FileProvider is not available.");
+            }
+
+            await _s3FileProvider.UploadStreamAsync(stream, keyName, contentType);
         }
 
-        public async Task<List<string>> ListS3ObjectsAsync(string prefix = null)
+        // Removed unsupported methods - using only interface methods
+        
+
+        public async Task<string> GetS3FileContentAsStringAsync(string keyName)
         {
-            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
-            return await _s3FileProvider.ListObjectsAsync(prefix);
+            if (!_useS3 || _s3FileProvider == null)
+            {
+                throw new InvalidOperationException("S3 is not enabled or S3FileProvider is not available.");
+            }
+
+            return await _s3FileProvider.GetFileContentAsStringAsync(keyName);
+        }
+
+        public async Task<List<string>> ListS3ObjectsAsync(string? prefix = null, int? maxKeys = null)
+        {
+            if (!_useS3 || _s3FileProvider == null)
+            {
+                throw new InvalidOperationException("S3 is not enabled or S3FileProvider is not available.");
+            }
+
+            return await _s3FileProvider.ListObjectsAsync(prefix, maxKeys);
         }
 
         public async Task DeleteS3ObjectAsync(string keyName)
         {
-            if (!_useS3) throw new InvalidOperationException("S3 is not enabled.");
+            if (!_useS3 || _s3FileProvider == null)
+            {
+                throw new InvalidOperationException("S3 is not enabled or S3FileProvider is not available.");
+            }
+
             await _s3FileProvider.DeleteObjectAsync(keyName);
         }
+
+        // Removed - not in interface
+
+        public async Task<bool> S3ObjectExistsAsync(string keyName)
+        {
+            if (!_useS3 || _s3FileProvider == null)
+            {
+                throw new InvalidOperationException("S3 is not enabled or S3FileProvider is not available.");
+            }
+
+            return await _s3FileProvider.ObjectExistsAsync(keyName);
+        }
+
+        // Removed - not in interface
     }
-} 
+}

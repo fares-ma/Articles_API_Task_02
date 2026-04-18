@@ -1,0 +1,139 @@
+### 🚀 Articles API - Complete Test Suite
+
+### 1. Health Check
+GET http://localhost:5212/api/Test/health
+
+### 2. Get Test Credentials
+GET http://localhost:5212/api/Test/login-test
+
+### 3. Generate JWT Token for Testing
+GET http://localhost:5212/api/Test/jwt-test
+
+### 4. Login with Credentials
+POST http://localhost:5212/api/Auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "password123"
+}
+
+### 5. Test Authentication Info (No Auth Required)
+GET http://localhost:5212/api/Test/auth-info
+
+### 6. Test Protected Endpoint (Replace TOKEN_HERE with actual token)
+GET http://localhost:5212/api/Test/protected
+Authorization: Bearer TOKEN_HERE
+
+### 7. Validate Token via GET (Replace TOKEN_HERE with actual token)
+GET http://localhost:5212/api/Auth/validate
+Authorization: Bearer TOKEN_HERE
+
+### 8. Validate Token via POST (Replace TOKEN_HERE with actual token)
+POST http://localhost:5212/api/Auth/validate
+Authorization: Bearer TOKEN_HERE
+
+### 9. Validate Token via Header (Replace TOKEN_HERE with actual token)
+POST http://localhost:5212/api/Auth/validate-header
+Authorization: Bearer TOKEN_HERE
+
+### 10. Test Token Validation via Test Controller (Replace TOKEN_HERE with actual token)
+GET http://localhost:5212/api/Test/validate-token
+Authorization: Bearer TOKEN_HERE
+
+### 11. Get All Articles (Public)
+GET http://localhost:5212/api/Articles
+
+### 12. Get Article by ID (Public)
+GET http://localhost:5212/api/Articles/1
+
+### 13. Get Article by Title (Protected - Replace TOKEN_HERE with actual token)
+GET http://localhost:5212/api/Articles/title/Getting%20Started%20with%20ASP.NET%20Core%208
+Authorization: Bearer TOKEN_HERE
+
+### 14. Get Articles by Tag (Public)
+GET http://localhost:5212/api/Articles/tag/aspnet
+
+### 15. Get Published Articles (Public)
+GET http://localhost:5212/api/Articles/published
+
+### 16. Get All Newspapers (Public)
+GET http://localhost:5212/api/Newspapers
+
+### 17. Get Newspaper by ID (Public)
+GET http://localhost:5212/api/Newspapers/1
+
+### 18. Get Newspaper by Name (Public)
+GET http://localhost:5212/api/Newspapers/name/tech%20daily
+
+### 19. Get Active Newspapers (Public)
+GET http://localhost:5212/api/Newspapers/active
+
+### 20. Create New Article (Protected - Replace TOKEN_HERE with actual token)
+POST http://localhost:5212/api/Articles
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "title": "New Test Article",
+  "content": "This is a test article content",
+  "author": "Test Author",
+  "tags": ["test", "api"],
+  "isPublished": true,
+  "newspaperId": 1
+}
+
+### 21. Create New Newspaper (Protected - Replace TOKEN_HERE with actual token)
+POST http://localhost:5212/api/Newspapers
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "name": "Test Newspaper",
+  "description": "A test newspaper",
+  "website": "https://testnewspaper.com",
+  "isActive": true
+}
+
+### 22. Update Article (Protected - Replace TOKEN_HERE with actual token)
+PUT http://localhost:5212/api/Articles/1
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "title": "Updated Article Title",
+  "content": "Updated content",
+  "author": "Updated Author",
+  "tags": ["updated", "test"],
+  "isPublished": true,
+  "newspaperId": 1
+}
+
+### 23. Update Newspaper (Protected - Replace TOKEN_HERE with actual token)
+PUT http://localhost:5212/api/Newspapers/1
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "name": "Updated Newspaper",
+  "description": "Updated description",
+  "website": "https://updatednewspaper.com",
+  "isActive": true
+}
+
+### 24. Delete Article (Protected - Replace TOKEN_HERE with actual token)
+DELETE http://localhost:5212/api/Articles/1
+Authorization: Bearer TOKEN_HERE
+
+### 25. Delete Newspaper (Protected - Replace TOKEN_HERE with actual token)
+DELETE http://localhost:5212/api/Newspapers/1
+Authorization: Bearer TOKEN_HERE
+
+### 26. Get Articles by Newspaper (Public)
+GET http://localhost:5212/api/Articles/newspaper/1
+
+### 27. S3 Test (Public)
+GET http://localhost:5212/api/Test/s3-test
+
+### 28. Swagger Documentation
+GET http://localhost:5212/swagger 

@@ -1,0 +1,52 @@
+### Articles API Test - Get Article by Title with Authorization
+### This file contains HTTP requests to test the protected endpoint
+
+### Variables
+@baseUrl = http://localhost:5212
+@username = admin
+@password = password123
+@articleTitle = test
+
+### Step 1: Test API Health Check
+GET {{baseUrl}}/api/Test/health
+
+### Step 2: Login to get JWT Token
+POST {{baseUrl}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+### Step 3: Get Article by Title (Protected - Requires Authorization)
+### Replace YOUR_JWT_TOKEN_HERE with the token from Step 2
+GET {{baseUrl}}/api/Articles/title/{{articleTitle}}
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Step 4: Get All Articles (No Authorization Required)
+GET {{baseUrl}}/api/Articles?pageNumber=1&pageSize=5
+
+### Step 5: Validate Token
+POST {{baseUrl}}/api/Auth/validate
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Alternative: Get Article by Title with different title
+GET {{baseUrl}}/api/Articles/title/Sample Article
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Alternative: Test with invalid token (should return 401)
+GET {{baseUrl}}/api/Articles/title/{{articleTitle}}
+Authorization: Bearer invalid_token_here
+
+### Alternative: Test without authorization header (should return 401)
+GET {{baseUrl}}/api/Articles/title/{{articleTitle}}
+
+### Instructions:
+### 1. Run Step 1 to verify API is running
+### 2. Run Step 2 to get JWT token
+### 3. Copy the "token" value from Step 2 response
+### 4. Replace "YOUR_JWT_TOKEN_HERE" in Step 3 with the actual token
+### 5. Run Step 3 to test the protected endpoint
+### 6. Run Step 4 to see all available articles
+### 7. Run Step 5 to validate your token

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Infrastructure.Persistence.Data;
+using Shared.Models;
 
 namespace Infrastructure.Persistence.Repositories
 {
@@ -25,6 +26,34 @@ namespace Infrastructure.Persistence.Repositories
         public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
             return await _dbSet.ToListAsync();
+        }
+
+        public virtual async Task<PaginationResult<T>> GetAllAsync(PaginationParameters parameters)
+        {
+            if (parameters.PageNumber < 1) parameters.PageNumber = 1;
+            if (parameters.PageSize < 1) parameters.PageSize = 10;
+            if (parameters.PageSize > 50) parameters.PageSize = 50;
+
+            var totalCount = await GetTotalCountAsync();
+
+            var items = await _dbSet
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            return new PaginationResult<T>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = parameters.PageNumber,
+                PageSize = parameters.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / parameters.PageSize)
+            };
+        }
+
+        public virtual async Task<int> GetTotalCountAsync()
+        {
+            return await _dbSet.CountAsync();
         }
 
         public virtual async Task<T> AddAsync(T entity)
